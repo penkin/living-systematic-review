@@ -15,7 +15,8 @@ npm install && npm run css                  # rebuild web/static/app.css after a
 
 Set `OPENROUTER_API_KEY` to let stage 2 call the model on a cache miss. Without it the
 pipeline runs from the cache alone, and a miss leaves the record listed but unscored.
-`SIGNAL_MODEL` picks the model, default `stealth/union-alpha`. `OPENROUTER_BASE_URL`
+`SIGNAL_MODEL` picks the model, default `anthropic/claude-haiku-4.5`. `SIGNAL_CONCURRENCY`
+sets how many model calls run side by side, default 8. `OPENROUTER_BASE_URL`
 picks the endpoint, default `https://openrouter.ai/api/v1`; any OpenAI-compatible chat
 endpoint works. Stage 2 calls it with the stdlib `urllib`, so no provider SDK is installed.
 Put the variables in a git-ignored `.env` at the repo root (copy `.env.example`);

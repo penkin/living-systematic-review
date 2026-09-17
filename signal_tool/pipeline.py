@@ -6,6 +6,8 @@ so a reviewer's confirmation never repeats a model call.
 
 import csv
 import json
+import os
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from signal_tool.geography import resolve
@@ -89,12 +91,13 @@ def run(run_dir, review, rules, ref, shared_cache, client=None):
     """Stages 1 to 3 for a fresh upload. Writes tags.json and signals.csv."""
     run_dir = Path(run_dir)
     records = tag(read_cards(run_dir), rules, review, ref)
-    tagged = {}
-    for record in records:
-        # Separate-lane records are tagged too, so a record_type override can still score
-        # without a second model call.
-        model = suggest(record, review, run_dir / "model", shared_cache, client)
-        tagged[record["record_id"]] = _tags_for(record, model)
+    # Separate-lane records are tagged too, so a record_type override can still score
+    # without a second model call. One call per record keeps the cache per record; the
+    # calls run side by side because a single call takes tens of seconds.
+    workers = int(os.environ.get("SIGNAL_CONCURRENCY", "8"))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        models = list(pool.map(lambda r: suggest(r, review, run_dir / "model", shared_cache, client), records))
+    tagged = {record["record_id"]: _tags_for(record, model) for record, model in zip(records, models)}
     write_tags(run_dir, tagged)
     return rescore(run_dir, review, rules, ref)
 
