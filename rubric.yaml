@@ -48,6 +48,9 @@ record_types:
 # Applied when no marker matches anywhere.
 default_record_type: journal_article
 
+# World Bank income level ids that count as LMIC. Source: reference/worldbank_income.json.
+lmic_income_levels: [LIC, LMC, UMC]
+
 # Scoring criteria. Stage 3. A separate-lane record is never scored at all.
 #
 # Each criterion maps a source field to a score. A value that is not listed takes
