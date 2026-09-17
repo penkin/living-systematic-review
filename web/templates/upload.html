@@ -13,14 +13,17 @@
   <div class="card mt-6 bg-base-100 shadow-sm">
     <div class="card-body">
       {% if error %}<div role="alert" class="alert alert-error"><span>{{ error }}</span></div>{% endif %}
-      <form method="post" enctype="multipart/form-data" class="flex flex-col gap-4">
+      <form method="post" enctype="multipart/form-data" class="flex flex-col gap-4" onsubmit="this.querySelector('button').disabled = true; this.querySelector('[data-busy]').hidden = false">
         {% csrf_token %}
         <label class="flex flex-col gap-1">
           <span class="font-medium">Records file</span>
-          <input type="file" name="cards" accept=".csv,text/csv" required class="file-input w-full" onchange="this.form.submit()">
+          <input type="file" name="cards" accept=".csv,text/csv" required class="file-input w-full" onchange="this.form.requestSubmit()">
           <span class="text-sm text-base-content/60">A CSV with the columns <code>record_id</code>, <code>title</code> and <code>abstract</code>. Covidence, Rayyan and EPPI-Reviewer exports work as they are.</span>
         </label>
-        <div class="card-actions"><button type="submit" class="btn btn-primary">Rank the records</button></div>
+        <div class="card-actions items-center gap-3">
+          <button type="submit" class="btn btn-primary">Rank the records</button>
+          <span data-busy hidden class="flex items-center gap-2 text-base-content/70"><span class="loading loading-spinner loading-sm"></span> Reading the file. The list opens in a moment.</span>
+        </div>
       </form>
     </div>
   </div>

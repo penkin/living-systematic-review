@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ row.record_id }} · Update Signal{% endblock %}
-{% block head %}{% if pending %}<meta http-equiv="refresh" content="3">{% endif %}{% endblock %}
+{% block main_attrs %}{% if pending %} data-poll{% endif %}{% endblock %}
 {% block nav %}
 <a class="btn btn-ghost btn-sm" href="{% url 'run_detail' run_id %}">Ranked records</a>
 <a class="btn btn-ghost btn-sm" href="{% url 'evaluate' run_id %}">Checks</a>

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block head %}{% if run.status == "processing" %}<meta http-equiv="refresh" content="3">{% endif %}{% endblock %}
+{% block main_attrs %}{% if run.status == "processing" %} data-poll{% endif %}{% endblock %}
 {% block nav %}
 <a class="btn btn-ghost btn-sm" href="#review">Review evidence</a>
 <a class="btn btn-ghost btn-sm" href="{% url 'evaluate' run_id %}">Checks</a>

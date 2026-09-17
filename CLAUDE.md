@@ -118,9 +118,11 @@ a `record_type` override can move a record into scoring without a model call. St
 re-runs for the one record on every confirmation, so keep it pure: tags plus
 `review.yaml` plus the rubric in, criteria and level out.
 
-The upload page submits as soon as the reviewer picks a file. The run page refreshes
-every three seconds while the run is `processing` and shows a spinner on each record
-that has no `Result` yet.
+The upload page submits as soon as the reviewer picks a file and shows a spinner until
+the run page opens. While the run is `processing`, the run page and a pending record
+page put `data-poll` on `<main>`. The script in `base.html` then fetches the page every
+three seconds and swaps the content in place, so the spinners update without a reload.
+Each record with no `Result` yet shows a spinner.
 
 Read `SPEC.md` section 4 before you change the decision tree. Read section 6 before
 you change the rubric. Read section 5 to find which stage produces a field.
@@ -133,7 +135,8 @@ Reviewers, not developers, read the pages. Keep them simple.
   with `npm run css` (`npm install` first; `node_modules/` is git-ignored). Tailwind
   reads the class names from `web/templates/`, so rebuild the CSS after any template
   change and commit the built file. No CDN, no custom CSS. JavaScript is fine where a
-  native control does not do the job; the upload form uses one `onchange` attribute.
+  native control does not do the job. Today that is the poll script in `base.html` and
+  the two event attributes on the upload form.
 - `web/templates/_badge.html` is the one place the level colours live. Include it
   with `level=`; an empty level renders "Not ranked".
 - Plain words on screen, raw ids in the CSV. Field labels live in `LABELS` in

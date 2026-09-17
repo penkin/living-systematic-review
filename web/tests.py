@@ -82,7 +82,7 @@ class UploadTests(WebTestCase):
         self.assertContains(detail, "The model call failed")
         self.assertContains(detail, "RuntimeError: model down")
 
-    def test_run_page_refreshes_while_tagging(self):
+    def test_run_page_polls_while_tagging(self):
         run = Run.objects.create()
         first = Record.objects.create(run=run, record_id="A", title="Done one")
         Record.objects.create(run=run, record_id="B", title="Waiting one")
@@ -90,7 +90,7 @@ class UploadTests(WebTestCase):
                               detail={"record_id": "A", "title": "Done one", "lane": "signal", "signal_level": "LOW",
                                       "signal_score": 3, "signal_max": 15, "signal_reason": "Low.", "suggested_action": "Note"})
         page = self.client.get(f"/run/{run.pk}/")
-        self.assertContains(page, 'http-equiv="refresh"')
+        self.assertContains(page, '" data-poll>')
         self.assertContains(page, "Tagged 1 of 2 records")
         self.assertContains(page, "loading-spinner")
         self.assertContains(page, "Tagging this record.")
@@ -98,13 +98,13 @@ class UploadTests(WebTestCase):
         self.assertLess(body.index('id="A"'), body.index('id="B"'), "a tagged row sorts above a waiting one")
 
         detail = self.client.get(f"/run/{run.pk}/record/B/")
-        self.assertContains(detail, 'http-equiv="refresh"')
+        self.assertContains(detail, '" data-poll>')
         self.assertContains(detail, "Tagging this record")
 
         run.status, run.error = Run.FAILED, "RuntimeError: boom"
         run.save()
         page = self.client.get(f"/run/{run.pk}/")
-        self.assertNotContains(page, 'http-equiv="refresh"')
+        self.assertNotContains(page, '" data-poll>')
         self.assertContains(page, "Tagging stopped: RuntimeError: boom")
 
     def test_unknown_run_is_404(self):
@@ -129,7 +129,7 @@ class RunTests(WebTestCase):
     def test_dashboard_ranks_and_keeps_every_record(self):
         response = self.client.get(self.run_url)
         self.assertContains(response, "29 ranked, 5 set aside")
-        self.assertNotContains(response, 'http-equiv="refresh"')
+        self.assertNotContains(response, '" data-poll>')
         for i in range(1, 35):
             self.assertContains(response, f'id="SYN-{i:03d}"')
         body = response.content.decode()
