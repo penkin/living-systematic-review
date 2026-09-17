@@ -1,5 +1,5 @@
 {
- "study_design": "other",
+ "study_design": "cohort",
  "relevance": "Direct",
  "outcome_touched": "O1",
  "intervention_tested": "No",
@@ -10,7 +10,7 @@
    "Age"
   ]
  },
- "harm_reported": "No",
+ "harm_reported": "Yes",
  "new_intervention_class": {
   "value": "No",
   "class_name": ""
@@ -21,19 +21,19 @@
  ],
  "sample_size": null,
  "evidence": {
-  "study_design": "une analyse de series temporelles",
-  "relevance": "Vagues de chaleur et mortalite infantile",
-  "outcome_touched": "une mortalite infantile accrue",
+  "study_design": "analyse les deces infantiles enregistres a Dakar entre 2015 et 2025 en relation avec les temperatures journalieres",
+  "relevance": "Vagues de chaleur et mortalite infantile a Dakar",
+  "outcome_touched": "Les journees de forte chaleur etaient associees a une mortalite infantile accrue",
   "intervention_tested": "",
-  "answers_question": "Les journees de forte chaleur etaient associees a une mortalite infantile accrue",
+  "answers_question": "association en Afrique de l Ouest",
   "equity_relevance": "mortalite infantile",
-  "harm_reported": "",
+  "harm_reported": "mortalite infantile accrue",
   "new_intervention_class": "",
-  "policy_relevance": "Aucune etude anterieure n a examine cette association en Afrique de l Ouest",
-  "countries_iso3": "Dakar",
+  "policy_relevance": "analyse de series temporelles",
+  "countries_iso3": "Dakar, Senegal",
   "sample_size": ""
  },
- "model_version": "stub",
- "prompt_version": "p1",
+ "model_version": "anthropic/claude-haiku-4.5",
+ "prompt_version": "p2",
  "prompt_date": "2026-09-17"
 }

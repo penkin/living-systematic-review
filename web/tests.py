@@ -86,10 +86,13 @@ class RunTests(SimpleTestCase):
         for i in range(1, 35):
             self.assertContains(response, f'id="SYN-{i:03d}"')
         body = response.content.decode()
-        self.assertLess(body.index('id="SYN-022"'), body.index('id="SYN-002"'), "HIGH sorts before MODERATE")
+        self.assertLess(body.index('id="SYN-022"'), body.index('id="SYN-003"'), "HIGH sorts before MODERATE")
         self.assertContains(response, "Override: harm reported")
         self.assertContains(response, "Ask the team whether this outcome belongs in the review.")
         self.assertContains(response, "/record/SYN-022/")
+        self.assertContains(response, "What the review already knows")
+        self.assertContains(response, "Effectiveness of cooling interventions")
+        self.assertContains(response, "Childhood diarrhoeal disease")
 
     def test_record_detail_page(self):
         page = self.client.get(f"{self.run_url}record/SYN-022/")
@@ -97,7 +100,7 @@ class RunTests(SimpleTestCase):
         self.assertContains(page, "How the level was set")
         self.assertContains(page, "Relevance to the review question")
         self.assertContains(page, "One point each for testing an intervention")
-        self.assertContains(page, "Tagged by stub")
+        self.assertContains(page, "Tagged by anthropic/")
         self.assertContains(page, "Suggested")
         self.assertContains(page, "Agree")
         self.assertContains(page, "harm reported")
@@ -112,14 +115,14 @@ class RunTests(SimpleTestCase):
         before = cache_files()
         run_model = self.runs / self.run_id / "model"
         model_before = sorted(p.name for p in run_model.iterdir())
-        self.assertEqual(self.signals()["SYN-002"]["signal_level"], "MODERATE")
+        self.assertEqual(self.signals()["SYN-003"]["signal_level"], "MODERATE")
 
         response = self.client.post(
-            f"{self.run_url}record/SYN-002/tag/", {"field": "harm_reported", "value": "Yes"}
+            f"{self.run_url}record/SYN-003/tag/", {"field": "harm_reported", "value": "Yes"}
         )
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(response["Location"].endswith("/record/SYN-002/"))
-        row = self.signals()["SYN-002"]
+        self.assertTrue(response["Location"].endswith("/record/SYN-003/#tag-harm_reported"))
+        row = self.signals()["SYN-003"]
         self.assertEqual(row["signal_level"], "HIGH")
         self.assertEqual(row["override_triggered"], "harm")
         self.assertEqual(cache_files(), before)
@@ -130,10 +133,13 @@ class RunTests(SimpleTestCase):
         self.assertContains(page, "Override, harm reported: level set to High.")
 
     def test_confirm_keeps_the_value_and_marks_it_confirmed(self):
-        response = self.client.post(f"{self.run_url}record/SYN-002/tag/", {"field": "harm_reported", "value": "No"})
+        response = self.client.post(f"{self.run_url}record/SYN-003/tag/", {"field": "harm_reported", "value": "No"})
         page = self.client.get(response["Location"])
         self.assertContains(page, "Agreed")
-        self.assertEqual(self.signals()["SYN-002"]["signal_level"], "MODERATE")
+        # Four tags still wait for a look; the agreed one has no controls left.
+        self.assertEqual(page.content.decode().count(">Agree</button>"), 4)
+        self.assertEqual(page.content.decode().count(">Change</button>"), 4)
+        self.assertEqual(self.signals()["SYN-003"]["signal_level"], "MODERATE")
 
     def test_record_type_override_moves_a_record_into_scoring(self):
         self.client.post(
@@ -144,7 +150,7 @@ class RunTests(SimpleTestCase):
         self.assertIn(row["signal_level"], ("LOW", "MODERATE", "HIGH"))
 
     def test_bad_tag_requests_are_400(self):
-        base = f"{self.run_url}record/SYN-002/tag/"
+        base = f"{self.run_url}record/SYN-003/tag/"
         self.assertEqual(self.client.post(base, {"field": "study_design", "value": "RCT"}).status_code, 400)
         self.assertEqual(self.client.post(base, {"field": "harm_reported", "value": "Maybe"}).status_code, 400)
         self.assertEqual(
@@ -168,7 +174,7 @@ class RunTests(SimpleTestCase):
         bad = self.client.post(f"{self.run_url}evaluate/", {"handsort": io.BytesIO(b"record_id,level\nSYN-001,HIGH\n")})
         self.assertEqual(bad.status_code, 400)
 
-        handsort = b"record_id,hand_level\nSYN-001,HIGH\nSYN-002,LOW\nSYN-013,HIGH\nSYN-031,HIGH\n"
+        handsort = b"record_id,hand_level\nSYN-001,HIGH\nSYN-003,LOW\nSYN-013,HIGH\nSYN-031,HIGH\n"
         response = self.client.post(f"{self.run_url}evaluate/", {"handsort": io.BytesIO(handsort)}, follow=True)
         self.assertContains(response, "Record by record")
         self.assertContains(response, "outside its top")

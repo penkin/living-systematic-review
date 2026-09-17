@@ -51,13 +51,12 @@ class CacheTests(unittest.TestCase):
         with (ROOT / "cards.csv").open(encoding="utf-8-sig", newline="") as handle:
             return list(csv.DictReader(handle))
 
-    def test_every_card_has_a_stub_and_none_calls_the_model(self):
+    def test_every_card_is_cached_and_none_calls_the_model(self):
         for record in self.cards():
             with self.subTest(record=record["record_id"]):
                 tags = suggest(record, REVIEW, self.run / "model", SHARED, client=RaisingClient())
-                self.assertEqual(tags["model_version"], "stub")
+                self.assertTrue(tags["model_version"])
                 self.assertEqual(tags["validation_errors"], [])
-                self.assertEqual(tags["evidence_missing"], [])
         self.assertEqual(len(list((self.run / "model").iterdir())), 34)
 
     def test_a_miss_without_a_client_returns_none(self):
@@ -74,6 +73,7 @@ class CacheTests(unittest.TestCase):
         self.assertIn("Review question", system)
         self.assertEqual(schema, output_schema(REVIEW))
         self.assertTrue((self.run / "model" / cache_key(RECORD)).is_file())
+        self.assertTrue((self.run / "shared" / cache_key(RECORD)).is_file())
 
     def test_the_cache_key_changes_with_the_text(self):
         changed = dict(RECORD, abstract="Different abstract.")

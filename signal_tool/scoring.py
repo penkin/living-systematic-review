@@ -68,11 +68,12 @@ def _reason(fields, rules):
     # with it before any template drops it.
     candidates = [t.format(**{**fields, "override": override}) for t in templates]
     candidates += [t.format(**{**fields, "override": ""}) for t in templates]
-    for text in candidates:
-        text = " ".join(text.split())
-        if len(text.split()) <= REASON_WORD_LIMIT:
-            return text
-    return " ".join(candidates[-1].split()[:REASON_WORD_LIMIT])
+    words = next(
+        (t.split() for t in candidates if len(t.split()) <= REASON_WORD_LIMIT),
+        candidates[-1].split()[:REASON_WORD_LIMIT],
+    )
+    # The short template starts with the outcome's lowercase short name.
+    return " ".join(words)[:1].upper() + " ".join(words)[1:]
 
 
 def score_record(tags, review, rules):

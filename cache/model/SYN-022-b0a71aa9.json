@@ -1,5 +1,5 @@
 {
- "study_design": "other",
+ "study_design": "cross-sectional",
  "relevance": "Direct",
  "outcome_touched": "O7",
  "intervention_tested": "Yes",
@@ -19,21 +19,21 @@
  "countries_iso3": [
   "ZAF"
  ],
- "sample_size": 14,
+ "sample_size": null,
  "evidence": {
   "study_design": "we reviewed incidents recorded over two hot seasons",
-  "relevance": "community cooling centre use during heat events",
-  "outcome_touched": "Following the rollout of 14 municipal cooling centres",
-  "intervention_tested": "14 municipal cooling centres",
-  "answers_question": "Cooling centre design guidance requires revision before further scale-up",
-  "equity_relevance": "three falls among older attendees",
-  "harm_reported": "clusters of gastrointestinal illness linked to shared water dispensers",
+  "relevance": "Following the rollout of 14 municipal cooling centres",
+  "outcome_touched": "community cooling centre use during heat events",
+  "intervention_tested": "Following the rollout of 14 municipal cooling centres",
+  "answers_question": "clusters of gastrointestinal illness linked to shared water dispensers at four sites, and three falls among older attendees on wet flooring",
+  "equity_relevance": "falls among older attendees",
+  "harm_reported": "gastrointestinal illness linked to shared water dispensers at four sites, and three falls among older attendees on wet flooring",
   "new_intervention_class": "",
-  "policy_relevance": "Cooling centre design guidance requires revision",
-  "countries_iso3": "eThekwini",
-  "sample_size": "14 municipal cooling centres"
+  "policy_relevance": "Cooling centre design guidance requires revision before further scale-up",
+  "countries_iso3": "eThekwini, South Africa",
+  "sample_size": ""
  },
- "model_version": "stub",
- "prompt_version": "p1",
+ "model_version": "anthropic/claude-haiku-4.5",
+ "prompt_version": "p2",
  "prompt_date": "2026-09-17"
 }

@@ -1,14 +1,12 @@
 {
- "study_design": "other",
- "relevance": "Partial",
+ "study_design": "cohort",
+ "relevance": "Not relevant",
  "outcome_touched": "NONE",
  "intervention_tested": "No",
  "answers_question": "No",
  "equity_relevance": {
-  "level": "Group included",
-  "factors": [
-   "Age"
-  ]
+  "level": "None",
+  "factors": []
  },
  "harm_reported": "No",
  "new_intervention_class": {
@@ -21,19 +19,19 @@
  ],
  "sample_size": null,
  "evidence": {
-  "study_design": "linked to daily temperature and rainfall",
-  "relevance": "childhood diarrhoeal admissions",
-  "outcome_touched": "Admissions increased following periods of elevated temperature",
+  "study_design": "Paediatric diarrhoeal admissions at two Maputo hospitals from 2016 to 2025 were linked to daily temperature and rainfall",
+  "relevance": "Childhood diarrhoeal disease is flagged out of scope",
+  "outcome_touched": "",
   "intervention_tested": "",
   "answers_question": "",
-  "equity_relevance": "children under two years",
+  "equity_relevance": "",
   "harm_reported": "",
   "new_intervention_class": "",
   "policy_relevance": "",
-  "countries_iso3": "Maputo",
+  "countries_iso3": "Maputo, Mozambique",
   "sample_size": ""
  },
- "model_version": "stub",
- "prompt_version": "p1",
+ "model_version": "anthropic/claude-haiku-4.5",
+ "prompt_version": "p2",
  "prompt_date": "2026-09-17"
 }

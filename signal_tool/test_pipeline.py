@@ -75,11 +75,13 @@ class PipelineTests(unittest.TestCase):
         for row in self.rows:
             with self.subTest(record=row["record_id"]):
                 self.assertLessEqual(len(str(row["signal_reason"]).split()), REASON_WORD_LIMIT)
+                if row["signal_reason"]:
+                    self.assertTrue(row["signal_reason"][0].isupper(), row["signal_reason"])
 
     def test_version_fields_are_filled(self):
         row = self.by_id["SYN-001"]
         self.assertEqual(row["rubric_version"], RULES["rubric_version"])
-        self.assertEqual(row["model_version"], "stub")
+        self.assertTrue(row["model_version"])
         self.assertEqual(row["reference_date"], REF["date"])
 
 
@@ -93,12 +95,12 @@ class RescoreTests(unittest.TestCase):
     def test_an_override_rescores_without_a_model_call_or_a_new_cache_file(self):
         tagged = read_tags(self.run_dir)
         before = {r["record_id"]: r for r in rescore(self.run_dir, REVIEW, RULES, REF)}
-        self.assertNotEqual(before["SYN-002"]["signal_level"], "HIGH")
-        tagged["SYN-002"]["tags"]["harm_reported"] = {"value": "Yes", "status": "overridden", "evidence": ""}
+        self.assertNotEqual(before["SYN-003"]["signal_level"], "HIGH")
+        tagged["SYN-003"]["tags"]["harm_reported"] = {"value": "Yes", "status": "overridden", "evidence": ""}
         write_tags(self.run_dir, tagged)
         cache_before = sorted(p.name for p in (self.run_dir / "model").iterdir())
         after = {r["record_id"]: r for r in rescore(self.run_dir, REVIEW, RULES, REF)}
-        self.assertEqual(after["SYN-002"]["signal_level"], "HIGH")
+        self.assertEqual(after["SYN-003"]["signal_level"], "HIGH")
         self.assertEqual(sorted(p.name for p in (self.run_dir / "model").iterdir()), cache_before)
 
     def test_overriding_record_type_moves_the_lane(self):

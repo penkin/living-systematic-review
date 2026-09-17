@@ -10,15 +10,16 @@
   <ul><li><a href="{% url 'run_detail' run_id %}">Ranked records</a></li><li>{{ row.record_id }}</li></ul>
 </div>
 <h1 class="text-2xl font-bold">{{ row.title }}</h1>
-<p class="mt-1 text-base-content/70">
-  {{ row.record_id }}{% if row.year %} · {{ row.year }}{% endif %}{% if row.country_names %} · {{ row.country_names|join:", " }}{% endif %}
-  · Tagged by {{ row.model_version|default:"no model" }}
+<p class="mt-1 flex flex-wrap items-center gap-2 text-base-content/70">
+  <span>{{ row.record_id }}{% if row.year %} · {{ row.year }}{% endif %}{% if row.country_names %} · {{ row.country_names|join:", " }}{% endif %}</span>
+  <span class="badge badge-soft badge-neutral badge-sm">Tagged by {{ row.model_version|default:"no model" }}</span>
 </p>
 {% if row.abstract %}
-<div class="collapse-arrow collapse mt-3 bg-base-100 shadow-sm">
-  <input type="checkbox" aria-label="Show the abstract">
-  <div class="collapse-title font-medium">Abstract</div>
-  <div class="collapse-content"><p>{{ row.abstract }}</p></div>
+<div class="card mt-3 bg-base-100 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title">Abstract</h2>
+    <p>{{ row.abstract }}</p>
+  </div>
 </div>
 {% endif %}
 
@@ -80,38 +81,48 @@
   <div class="card-body">
     <h2 class="card-title">Tags to check</h2>
     <p class="text-base-content/70">Every tag is a suggestion until you look at it. Agree with it, or change it. The score updates at once.</p>
-    <div class="divide-y divide-base-200">
-    {% for check in checks %}
-      <div class="grid gap-3 py-4 md:grid-cols-[1fr_1.4fr_auto] md:items-start">
-        <div>
-          <div class="font-medium">{{ check.label }}</div>
-          <div class="text-sm text-base-content/60">{{ check.help }}</div>
-        </div>
-        <div>
-          {% if check.status == "confirmed" %}<span class="badge badge-success">{{ check.status_word }}</span>
-          {% elif check.status == "overridden" %}<span class="badge badge-info">{{ check.status_word }}</span>
-          {% else %}<span class="badge badge-ghost">{{ check.status_word }}</span>{% endif %}
-          <strong>{{ check.value_label|default:"Not tagged" }}</strong>
-          {% if check.evidence %}<q class="mt-1 block text-sm italic text-base-content/70">{{ check.evidence }}</q>{% endif %}
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <form method="post" action="{% url 'set_tag' run_id row.record_id %}">
-            {% csrf_token %}
-            <input type="hidden" name="field" value="{{ check.field }}">
-            <input type="hidden" name="value" value="{{ check.value }}">
-            <button type="submit" class="btn btn-sm btn-primary">Agree</button>
-          </form>
-          <form method="post" action="{% url 'set_tag' run_id row.record_id %}" class="join">
-            {% csrf_token %}
-            <input type="hidden" name="field" value="{{ check.field }}">
-            <select name="value" class="select select-sm join-item" aria-label="Change {{ check.label }} to">
-              {% for value, text in check.options %}<option value="{{ value }}">{{ text }}</option>{% endfor %}
-            </select>
-            <button type="submit" class="btn btn-sm btn-outline join-item">Change to</button>
-          </form>
-        </div>
-      </div>
-    {% endfor %}
+    <div class="overflow-x-auto">
+      <table class="table">
+        <tbody>
+        {% for check in checks %}
+          <tr id="tag-{{ check.field }}" class="scroll-mt-4 target:bg-primary/5">
+            <td class="align-top">
+              <div class="font-medium">{{ check.label }}</div>
+              <div class="text-sm text-base-content/60">{{ check.help }}</div>
+            </td>
+            <td class="w-2/5 align-top">
+              <div class="flex items-center gap-2">
+                <strong>{{ check.value_label|default:"Not tagged" }}</strong>
+                {% if check.status == "confirmed" %}<span class="badge badge-sm badge-success">{{ check.status_word }}</span>
+                {% elif check.status == "overridden" %}<span class="badge badge-sm badge-info">{{ check.status_word }}</span>
+                {% else %}<span class="badge badge-sm badge-ghost">{{ check.status_word }}</span>{% endif %}
+              </div>
+              {% if check.evidence %}<q class="mt-1 block text-sm italic text-base-content/70">{{ check.evidence }}</q>{% endif %}
+            </td>
+            <td class="whitespace-nowrap align-top">
+              {% if check.status_word == "Suggested" %}
+              <div class="flex items-center gap-2">
+                <form method="post" action="{% url 'set_tag' run_id row.record_id %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="field" value="{{ check.field }}">
+                  <input type="hidden" name="value" value="{{ check.value }}">
+                  <button type="submit" class="btn btn-sm btn-primary w-20">Agree</button>
+                </form>
+                <form method="post" action="{% url 'set_tag' run_id row.record_id %}" class="join">
+                  {% csrf_token %}
+                  <input type="hidden" name="field" value="{{ check.field }}">
+                  <select name="value" class="select select-sm join-item w-44" aria-label="Change {{ check.label }} to">
+                    {% for value, text in check.options %}<option value="{{ value }}">{{ text }}</option>{% endfor %}
+                  </select>
+                  <button type="submit" class="btn btn-sm btn-outline join-item">Change</button>
+                </form>
+              </div>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
 </div>

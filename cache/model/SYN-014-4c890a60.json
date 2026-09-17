@@ -7,6 +7,7 @@
  "equity_relevance": {
   "level": "Group included",
   "factors": [
+   "Place of residence",
    "Socioeconomic status"
   ]
  },
@@ -15,25 +16,25 @@
   "value": "No",
   "class_name": ""
  },
- "policy_relevance": "Direct",
+ "policy_relevance": "Some",
  "countries_iso3": [
   "ZAF"
  ],
  "sample_size": 96,
  "evidence": {
-  "study_design": "a cluster-randomised trial",
-  "relevance": "Cool roof coatings and indoor heat exposure",
+  "study_design": "Ninety-six dwelling clusters in two informal settlements were randomised",
+  "relevance": "informal settlements",
   "outcome_touched": "Indoor maximum temperature during the hot season was the primary outcome",
-  "intervention_tested": "randomised to reflective roof coating or usual conditions",
+  "intervention_tested": "reflective roof coating",
   "answers_question": "Coated dwellings recorded lower indoor peak temperatures",
   "equity_relevance": "informal settlements",
   "harm_reported": "",
   "new_intervention_class": "",
-  "policy_relevance": "This is the first randomised evaluation of the intervention in an African setting",
-  "countries_iso3": "Cape Town",
+  "policy_relevance": "first randomised evaluation of the intervention in an African setting",
+  "countries_iso3": "Cape Town, South Africa",
   "sample_size": "Ninety-six dwelling clusters"
  },
- "model_version": "stub",
- "prompt_version": "p1",
+ "model_version": "anthropic/claude-haiku-4.5",
+ "prompt_version": "p2",
  "prompt_date": "2026-09-17"
 }

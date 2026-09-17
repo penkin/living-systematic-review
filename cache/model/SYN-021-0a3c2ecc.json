@@ -1,12 +1,14 @@
 {
- "study_design": "non-randomised",
+ "study_design": "cohort",
  "relevance": "Direct",
  "outcome_touched": "O8",
  "intervention_tested": "Yes",
  "answers_question": "Yes",
  "equity_relevance": {
-  "level": "None",
-  "factors": []
+  "level": "Group included",
+  "factors": [
+   "Place of residence"
+  ]
  },
  "harm_reported": "No",
  "new_intervention_class": {
@@ -19,19 +21,19 @@
  ],
  "sample_size": null,
  "evidence": {
-  "study_design": "an interrupted time-series design",
-  "relevance": "Evaluation of a municipal heat early warning system",
-  "outcome_touched": "A heat early warning system was introduced in 2023",
-  "intervention_tested": "SMS alerts, radio broadcasts and community health worker activation",
-  "answers_question": "Clinic presentations declined following implementation",
-  "equity_relevance": "",
+  "study_design": "interrupted time-series design",
+  "relevance": "heat early warning system in Ouagadougou",
+  "outcome_touched": "heat-related clinic presentations across two hot seasons",
+  "intervention_tested": "heat early warning system was introduced in 2023 with SMS alerts, radio broadcasts and community health worker activation",
+  "answers_question": "evaluated alert coverage, household response and heat-related clinic presentations",
+  "equity_relevance": "Ouagadougou",
   "harm_reported": "",
   "new_intervention_class": "",
-  "policy_relevance": "We evaluated alert coverage, household response and heat-related clinic presentations",
-  "countries_iso3": "Ouagadougou",
+  "policy_relevance": "municipal heat early warning system",
+  "countries_iso3": "Burkina Faso",
   "sample_size": ""
  },
- "model_version": "stub",
- "prompt_version": "p1",
+ "model_version": "anthropic/claude-haiku-4.5",
+ "prompt_version": "p2",
  "prompt_date": "2026-09-17"
 }

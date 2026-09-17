@@ -1,6 +1,6 @@
 {
- "study_design": "other",
- "relevance": "Direct",
+ "study_design": "cohort",
+ "relevance": "Partial",
  "outcome_touched": "O9",
  "intervention_tested": "No",
  "answers_question": "Yes",
@@ -13,25 +13,25 @@
   "value": "No",
   "class_name": ""
  },
- "policy_relevance": "None",
+ "policy_relevance": "Some",
  "countries_iso3": [
   "ZMB"
  ],
  "sample_size": null,
  "evidence": {
-  "study_design": "CONFERENCE ABSTRACT ONLY",
-  "relevance": "Heat events and mental health service attendance",
-  "outcome_touched": "attendance at mental health services in Lusaka during declared heat events",
+  "study_design": "examined attendance at mental health services in Lusaka during declared heat events over two seasons",
+  "relevance": "African urban populations in Lusaka with heat event exposure",
+  "outcome_touched": "mental health service attendance",
   "intervention_tested": "",
   "answers_question": "Attendance appeared elevated during heat events",
   "equity_relevance": "",
   "harm_reported": "",
   "new_intervention_class": "",
-  "policy_relevance": "",
-  "countries_iso3": "Lusaka",
+  "policy_relevance": "declared heat events",
+  "countries_iso3": "Lusaka, Zambia",
   "sample_size": ""
  },
- "model_version": "stub",
- "prompt_version": "p1",
+ "model_version": "anthropic/claude-haiku-4.5",
+ "prompt_version": "p2",
  "prompt_date": "2026-09-17"
 }

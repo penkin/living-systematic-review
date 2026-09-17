@@ -236,6 +236,9 @@ def suggest(record, review, run_cache, shared_cache, client=None):
         elif client is None:
             return None
         else:
-            run_path.parent.mkdir(parents=True, exist_ok=True)
-            run_path.write_text(json.dumps(call_model(record, review, client), indent=1), encoding="utf-8")
+            # The shared copy is what makes a record free on every later upload.
+            text = json.dumps(call_model(record, review, client), indent=1)
+            for path in (run_path, shared_path):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(text, encoding="utf-8")
     return validate(json.loads(run_path.read_text(encoding="utf-8")), record, review)

@@ -7,10 +7,11 @@
  "equity_relevance": {
   "level": "Group included",
   "factors": [
-   "Occupation"
+   "Occupation",
+   "Place of residence"
   ]
  },
- "harm_reported": "No",
+ "harm_reported": "Yes",
  "new_intervention_class": {
   "value": "No",
   "class_name": ""
@@ -21,19 +22,19 @@
  ],
  "sample_size": 180,
  "evidence": {
-  "study_design": "A prospective study of 180 market traders",
-  "relevance": "Acute kidney injury among outdoor market traders during hot season",
-  "outcome_touched": "incident kidney injury",
+  "study_design": "prospective study",
+  "relevance": "hot season",
+  "outcome_touched": "Serum creatinine was measured at the start and end of the hot season. Sixteen percent met criteria for incident kidney injury",
   "intervention_tested": "",
-  "answers_question": "Sixteen percent met criteria for incident kidney injury",
-  "equity_relevance": "market traders working in uncovered stalls",
-  "harm_reported": "",
+  "answers_question": "outdoor market traders during hot season",
+  "equity_relevance": "outdoor market traders working in uncovered stalls",
+  "harm_reported": "incident kidney injury",
   "new_intervention_class": "",
   "policy_relevance": "Water access at the market site modified the association",
-  "countries_iso3": "Kumasi",
+  "countries_iso3": "Kumasi, Ghana",
   "sample_size": "180 market traders"
  },
- "model_version": "stub",
- "prompt_version": "p1",
+ "model_version": "anthropic/claude-haiku-4.5",
+ "prompt_version": "p2",
  "prompt_date": "2026-09-17"
 }

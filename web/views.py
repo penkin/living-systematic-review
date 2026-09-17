@@ -6,6 +6,7 @@ import yaml
 from django.conf import settings
 from django.http import FileResponse, Http404, HttpResponseBadRequest
 from django.shortcuts import redirect, render
+from django.urls import reverse
 
 from signal_tool import evaluate as d7
 from signal_tool import pipeline
@@ -124,6 +125,7 @@ def run_detail(request, run_id):
     )
     # SPEC.md section 3: the separate lane is not a signal decision. These records
     # stay visible and never get a score.
+    uncertainty = rules["criteria"]["G"]
     return render(
         request,
         "run_detail.html",
@@ -133,6 +135,10 @@ def run_detail(request, run_id):
             "separate": [r for r in rows if r["lane"] == "separate"],
             "legend": [(level, rules["suggested_action"][level]) for level in reversed(rules["levels"])],
             "low_level": rules["levels"][0],
+            "outcomes": [dict(o, points=uncertainty["scores"].get(o["certainty"], uncertainty["default"])) for o in review["outcomes"]],
+            "uncertainty_max": uncertainty["max"],
+            "sof_date": review.get("sof_date"),
+            "out_of_scope": review["out_of_scope_outcomes"],
         },
     )
 
@@ -228,7 +234,8 @@ def set_tag(request, run_id, record_id):
     cell["value"] = value
     pipeline.write_tags(run_dir, tagged)
     pipeline.rescore(run_dir, review, rules, ref)
-    return redirect("record_detail", run_id=run_id, record_id=record_id)
+    # Land on the row the reviewer just checked, not at the top of the page.
+    return redirect(reverse("record_detail", args=[run_id, record_id]) + f"#tag-{field}")
 
 
 def signals_csv(request, run_id):

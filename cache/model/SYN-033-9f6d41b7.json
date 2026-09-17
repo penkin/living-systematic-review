@@ -3,14 +3,15 @@
  "relevance": "Partial",
  "outcome_touched": "O5",
  "intervention_tested": "No",
- "answers_question": "No",
+ "answers_question": "Yes",
  "equity_relevance": {
   "level": "Group included",
   "factors": [
+   "Occupation",
    "Place of residence"
   ]
  },
- "harm_reported": "No",
+ "harm_reported": "Yes",
  "new_intervention_class": {
   "value": "No",
   "class_name": ""
@@ -22,18 +23,18 @@
  "sample_size": 890,
  "evidence": {
   "study_design": "We followed 890 pregnancies",
-  "relevance": "Heat exposure and pregnancy outcomes among subsistence farmers",
-  "outcome_touched": "associated with lower birthweight",
+  "relevance": "heat exposure and pregnancy outcomes",
+  "outcome_touched": "lower birthweight",
   "intervention_tested": "",
-  "answers_question": "All participants resided in rural districts",
-  "equity_relevance": "All participants resided in rural districts",
-  "harm_reported": "",
+  "answers_question": "exposure to ambient heat...affect...birth outcomes",
+  "equity_relevance": "subsistence farmers in rural...All participants resided in rural districts",
+  "harm_reported": "associated with lower birthweight",
   "new_intervention_class": "",
   "policy_relevance": "",
   "countries_iso3": "rural Burkina Faso",
   "sample_size": "890 pregnancies"
  },
- "model_version": "stub",
- "prompt_version": "p1",
+ "model_version": "anthropic/claude-haiku-4.5",
+ "prompt_version": "p2",
  "prompt_date": "2026-09-17"
 }
