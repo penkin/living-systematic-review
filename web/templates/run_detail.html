@@ -1,14 +1,62 @@
 {% extends "base.html" %}
 {% block content %}
-<p class="muted">Run {{ run_id }} · {{ signal|length }} scoring · {{ separate|length }} separate lane</p>
-<p class="error">Stages 2 and 3 are not built yet, so no record has a signal level.</p>
+<p class="muted">Run {{ run_id }} · {{ signal|length }} scoring · {{ separate|length }} separate lane ·
+  <a href="{% url 'signals_csv' run_id %}">Download signals.csv</a> ·
+  <a href="{% url 'evaluate' run_id %}">Evaluate</a></p>
+<p class="muted">The tool suggests. The reviewer decides. Every tag is a suggestion until a human confirms it.</p>
 
 <h2>Signal lane</h2>
 <table>
-  <thead><tr><th>Record</th><th>Type</th><th>Title</th></tr></thead>
+  <thead><tr><th>Record</th><th>Level</th><th>Score</th><th>Reason</th><th>Action</th></tr></thead>
   <tbody>
-  {% for record in signal %}
-    <tr><td>{{ record.record_id }}</td><td class="muted">{{ record.record_type }}</td><td>{{ record.title }}</td></tr>
+  {% for row in signal %}
+    <tr id="{{ row.record_id }}" {% if row.signal_level == low_level %}class="muted"{% endif %}>
+      <td>{{ row.record_id }}</td>
+      <td><strong>{{ row.signal_level|default:"—" }}</strong>{% if row.override_triggered %}<br><small>override: {{ row.override_triggered }}</small>{% endif %}</td>
+      <td>{% if row.signal_level %}{{ row.signal_score }}/15{% endif %}</td>
+      <td>{{ row.title }}<br><small class="muted">{{ row.signal_reason }}{% if row.model_status != "ok" %}No model response cached; not scored.{% endif %}</small></td>
+      <td>{{ row.suggested_action }}</td>
+    </tr>
+    <tr {% if row.signal_level == low_level %}class="muted"{% endif %}>
+      <td colspan="5">
+        <details>
+          <summary>Tags and evidence · model {{ row.model_version|default:"none" }}</summary>
+          {% if row.criteria %}
+          <p>
+            {% for name, value in row.criteria %}{{ name }} {{ value }} · {% endfor %}
+            certainty {{ row.outcome_certainty|default:"—" }} · {{ row.n_studies }} studies ·
+            setting {{ row.lmic_setting }} · countries {{ row.countries|join:", "|default:"none found" }}
+            {% if row.scope_question %} · <strong>scope question</strong>{% endif %}
+            {% if row.out_of_region %} · out of region{% endif %}
+          </p>
+          {% endif %}
+          {% for control in row.controls %}
+          <form method="post" action="{% url 'set_tag' run_id row.record_id %}" class="tag">
+            {% csrf_token %}
+            <input type="hidden" name="field" value="{{ control.field }}">
+            <label>{{ control.field }}
+              <select name="value">
+                {% for option in control.options %}<option {% if option == control.value|stringformat:"s" %}selected{% endif %}>{{ option }}</option>{% endfor %}
+              </select>
+            </label>
+            <button type="submit">Confirm</button>
+            <span class="status {{ control.status }}">{{ control.status }}</span>
+            {% if control.evidence %}<q class="muted">{{ control.evidence }}</q>{% endif %}
+          </form>
+          {% endfor %}
+          <p class="muted">
+            design {{ row.study_design }} · intervention {{ row.intervention_tested }} · answers question {{ row.answers_question }} ·
+            equity {{ row.equity_level }} · policy {{ row.policy_relevance }} · n {{ row.sample_size|default:"?" }}
+            {% if row.secondary_report %} · secondary report{% endif %}{% if row.non_english %} · non-English{% endif %}
+            {% if row.is_duplicate %} · duplicate of {{ row.duplicate_of }}{% endif %}
+          </p>
+          {% if row.evidence %}
+          <ul class="muted">{% for field, phrase in row.evidence %}<li>{{ field }}: <q>{{ phrase }}</q></li>{% endfor %}</ul>
+          {% endif %}
+          {% if row.validation_errors %}<p class="error">Model values off the closed list: {{ row.validation_errors|join:"; " }}</p>{% endif %}
+        </details>
+      </td>
+    </tr>
   {% endfor %}
   </tbody>
 </table>
@@ -18,8 +66,23 @@
 <table>
   <thead><tr><th>Record</th><th>Type</th><th>Title</th><th>Why</th></tr></thead>
   <tbody>
-  {% for record in separate %}
-    <tr><td>{{ record.record_id }}</td><td class="muted">{{ record.record_type }}</td><td>{{ record.title }}</td><td class="muted">{{ record.lane_reason }}</td></tr>
+  {% for row in separate %}
+    <tr id="{{ row.record_id }}">
+      <td>{{ row.record_id }}</td>
+      <td class="muted">{{ row.record_type }}</td>
+      <td>{{ row.title }}</td>
+      <td class="muted">{{ row.lane_reason }}
+        {% for control in row.controls %}{% if control.field == "record_type" %}
+        <form method="post" action="{% url 'set_tag' run_id row.record_id %}" class="tag">
+          {% csrf_token %}
+          <input type="hidden" name="field" value="record_type">
+          <select name="value">{% for option in control.options %}<option {% if option == control.value %}selected{% endif %}>{{ option }}</option>{% endfor %}</select>
+          <button type="submit">Confirm</button>
+          <span class="status {{ control.status }}">{{ control.status }}</span>
+        </form>
+        {% endif %}{% endfor %}
+      </td>
+    </tr>
   {% endfor %}
   </tbody>
 </table>
