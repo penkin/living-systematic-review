@@ -45,3 +45,4 @@ RUNS_DIR = Path(os.environ.get("SIGNAL_RUNS_DIR", BASE_DIR / "runs"))
 # developer present. They are never imported into code.
 REVIEW_CONFIG = BASE_DIR / "review.yaml"
 REFERENCE_DIR = BASE_DIR / "reference"
+RUBRIC_CONFIG = BASE_DIR / "rubric.yaml"

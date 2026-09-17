@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 .venv/bin/python manage.py runserver    # serve the tool at http://127.0.0.1:8000/
-.venv/bin/python manage.py test web     # run the tests
+.venv/bin/python manage.py test         # run every test, web and signal_tool
 .venv/bin/python manage.py test web.tests.UploadTests.test_header_only_is_rejected
 uv pip install --python .venv/bin/python -r requirements.txt
 ```
@@ -49,8 +49,10 @@ The tool suggests.
 - Never hardcode geography. Countries, regions, and income groups come from
   `reference/` and from the World Bank API.
 - Never require a network connection at demo time. Cache every model response.
-- Never write the rubric, the thresholds, or the overrides into code. The review team
-  edits them without a developer present.
+- Never write the rubric, the thresholds, the overrides, or the lane rules into code.
+  They live in `rubric.yaml`. The review team edits them without a developer present.
+- Never drop a record. A separate-lane type leaves the scoring, not the output.
+  `SPEC.md:37` calls the separate lane "NOT a signal decision".
 - The open questions in `SPEC.md` section 4 are configuration switches, not code
   branches: `promote_large_studies_on_moderate`, `out_of_region_cap`,
   `out_of_scope_handling`, `certainty_inverted`.

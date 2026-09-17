@@ -6,6 +6,8 @@ from django.conf import settings
 from django.http import Http404
 from django.shortcuts import redirect, render
 
+from signal_tool.tagging import load_rules, tag
+
 # SPEC.md section 9: Covidence, Rayyan and EPPI-Reviewer exports all supply these
 # three. Everything else in cards.csv is optional.
 REQUIRED_COLUMNS = ("record_id", "title", "abstract")
@@ -57,4 +59,16 @@ def run_detail(request, run_id):
     with cards.open(encoding="utf-8-sig", newline="") as handle:
         records = _read_records(handle)
 
-    return render(request, "run_detail.html", {"run_id": run_id, "records": records})
+    tag(records, load_rules(settings.RUBRIC_CONFIG))
+
+    # SPEC.md section 3: the separate lane is not a signal decision. These records
+    # stay visible and never get a score.
+    return render(
+        request,
+        "run_detail.html",
+        {
+            "run_id": run_id,
+            "signal": [r for r in records if r["lane"] == "signal"],
+            "separate": [r for r in records if r["lane"] == "separate"],
+        },
+    )
