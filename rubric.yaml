@@ -31,8 +31,7 @@ record_types:
     markers: [commentary, editorial, viewpoint]
 
   # A preprint only leaves the signal lane when a published version of the same
-  # study is in the batch. SPEC.md section 4. Duplicate detection is not built yet,
-  # so every preprint still scores.
+  # study is in the batch. SPEC.md section 4. See `duplicates` below.
   preprint:
     lane: signal
     markers: [preprint]
@@ -50,6 +49,18 @@ default_record_type: journal_article
 
 # World Bank income level ids that count as LMIC. Source: reference/worldbank_income.json.
 lmic_income_levels: [LIC, LMC, UMC]
+
+# In-batch duplicates. Titles are lower-cased, stripped of these prefixes, of any
+# subtitle after a colon, and of punctuation and digits, then compared. A ratio at or
+# above the threshold is a duplicate.
+duplicates:
+  title_similarity: 0.9
+  strip_prefixes: ["preprint:"]
+  preprint_lane_reason: "Preprint duplicate of {record_id}"
+
+# A record that only reports secondary outcomes of a study already in the batch.
+# Flagged, never routed out: the reviewer decides. SYN-028 is the seeded case.
+secondary_report_markers: [secondary outcomes, reported elsewhere]
 
 # Scoring criteria. Stage 3. A separate-lane record is never scored at all.
 #
