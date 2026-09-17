@@ -83,7 +83,7 @@
     <p class="text-base-content/70">Every tag is a suggestion until you look at it. Agree with it, or change it. The score updates at once.</p>
     <div class="divide-y divide-base-200">
     {% for check in checks %}
-      <div class="grid gap-x-6 gap-y-3 py-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_max-content] md:items-start">
+      <div id="tag-{{ check.field }}" class="-mx-3 grid gap-x-6 gap-y-3 rounded-box px-3 py-4 scroll-mt-4 target:bg-primary/5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_max-content] md:items-start">
         <div>
           <div class="font-medium">{{ check.label }}</div>
           <div class="text-sm text-base-content/60">{{ check.help }}</div>
@@ -97,13 +97,15 @@
           </div>
           {% if check.evidence %}<q class="mt-1 block text-sm italic text-base-content/70">{{ check.evidence }}</q>{% endif %}
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 md:justify-end">
+          {% if check.status_word == "Suggested" %}
           <form method="post" action="{% url 'set_tag' run_id row.record_id %}">
             {% csrf_token %}
             <input type="hidden" name="field" value="{{ check.field }}">
             <input type="hidden" name="value" value="{{ check.value }}">
             <button type="submit" class="btn btn-sm btn-primary w-20">Agree</button>
           </form>
+          {% endif %}
           <form method="post" action="{% url 'set_tag' run_id row.record_id %}" class="join">
             {% csrf_token %}
             <input type="hidden" name="field" value="{{ check.field }}">

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block nav %}
+<a class="btn btn-ghost btn-sm" href="#review">Review evidence</a>
 <a class="btn btn-ghost btn-sm" href="{% url 'evaluate' run_id %}">Checks</a>
 <a class="btn btn-ghost btn-sm" href="{% url 'signals_csv' run_id %}">Download CSV</a>
 <a class="btn btn-ghost btn-sm" href="{% url 'upload' %}">New upload</a>
@@ -68,5 +69,27 @@
       </tbody>
     </table>
   </div>
+</div>
+
+<h2 id="review" class="mt-8 text-xl font-bold">What the review already knows</h2>
+<p class="mt-1 text-base-content/70">The Summary of Findings as of {{ sof_date }}. A new record earns more points the less certain the review is about the outcome it lands on.</p>
+<div class="card mt-4 bg-base-100 shadow-sm">
+  <div class="overflow-x-auto">
+    <table class="table table-zebra">
+      <thead><tr><th>Outcome</th><th>Studies</th><th>Certainty</th><th>Missing from the evidence</th><th>Points for a new record</th></tr></thead>
+      <tbody>
+      {% for o in outcomes %}
+        <tr>
+          <td><span class="font-semibold">{{ o.id }}</span> {{ o.name }}</td>
+          <td>{{ o.n_studies }}</td>
+          <td>{{ o.certainty }}</td>
+          <td>{{ o.absent_contexts|join:", " }}</td>
+          <td class="whitespace-nowrap"><span class="font-semibold">{{ o.points }}</span> <span class="text-base-content/50">/ {{ uncertainty_max }}</span></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body pt-0 text-sm text-base-content/70">Not review outcomes today, flagged by the team as possible extensions: {{ out_of_scope|join:" · " }}.</div>
 </div>
 {% endblock %}

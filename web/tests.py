@@ -90,6 +90,9 @@ class RunTests(SimpleTestCase):
         self.assertContains(response, "Override: harm reported")
         self.assertContains(response, "Ask the team whether this outcome belongs in the review.")
         self.assertContains(response, "/record/SYN-022/")
+        self.assertContains(response, "What the review already knows")
+        self.assertContains(response, "Effectiveness of cooling interventions")
+        self.assertContains(response, "Childhood diarrhoeal disease")
 
     def test_record_detail_page(self):
         page = self.client.get(f"{self.run_url}record/SYN-022/")
@@ -118,7 +121,7 @@ class RunTests(SimpleTestCase):
             f"{self.run_url}record/SYN-003/tag/", {"field": "harm_reported", "value": "Yes"}
         )
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(response["Location"].endswith("/record/SYN-003/"))
+        self.assertTrue(response["Location"].endswith("/record/SYN-003/#tag-harm_reported"))
         row = self.signals()["SYN-003"]
         self.assertEqual(row["signal_level"], "HIGH")
         self.assertEqual(row["override_triggered"], "harm")
@@ -133,6 +136,8 @@ class RunTests(SimpleTestCase):
         response = self.client.post(f"{self.run_url}record/SYN-003/tag/", {"field": "harm_reported", "value": "No"})
         page = self.client.get(response["Location"])
         self.assertContains(page, "Agreed")
+        # Four tags still wait for a look; the agreed one only offers Change.
+        self.assertEqual(page.content.decode().count(">Agree</button>"), 4)
         self.assertEqual(self.signals()["SYN-003"]["signal_level"], "MODERATE")
 
     def test_record_type_override_moves_a_record_into_scoring(self):
