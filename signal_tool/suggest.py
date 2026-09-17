@@ -9,10 +9,13 @@ import hashlib
 import json
 import os
 import shutil
+import urllib.request
 from datetime import date
 from pathlib import Path
 
-MODEL = os.environ.get("SIGNAL_MODEL", "claude-haiku-4-5")
+API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
+API_BASE = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
+MODEL = os.environ.get("SIGNAL_MODEL", "stealth/union-alpha")
 PROMPT_VERSION = "p1"
 OUTCOME_NONE = "NONE"
 
@@ -33,12 +36,30 @@ EVIDENCE_FIELDS = (
 
 
 def build_client():
-    """An Anthropic client when a key is present, else None. The demo runs on None."""
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        return None
-    import anthropic
+    """``complete(system, user, schema) -> str`` when OPENROUTER_API_KEY is set, else None.
 
-    return anthropic.Anthropic()
+    The endpoint is OpenAI-compatible chat completions, so OPENROUTER_BASE_URL can point
+    at any provider that speaks it. The demo runs on None.
+    """
+    if not API_KEY:
+        return None
+
+    def complete(system, user, schema):
+        body = {
+            "model": MODEL,
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            "response_format": {"type": "json_schema", "json_schema": {"name": "tags", "strict": True, "schema": schema}},
+            "max_tokens": 1024,
+        }
+        request = urllib.request.Request(
+            f"{API_BASE}/chat/completions",
+            data=json.dumps(body).encode("utf-8"),
+            headers={"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(request, timeout=120) as response:
+            return json.load(response)["choices"][0]["message"]["content"]
+
+    return complete
 
 
 def cache_key(record):
@@ -125,16 +146,15 @@ def build_prompt(record, review):
     return system, user
 
 
+def parse_json(text):
+    """The JSON object in a model reply, with any code fence or preamble stripped."""
+    start, end = text.find("{"), text.rfind("}")
+    return json.loads(text[start:end + 1] if start >= 0 else text)
+
+
 def call_model(record, review, client):
     system, user = build_prompt(record, review)
-    response = client.messages.create(
-        model=MODEL,
-        max_tokens=1024,
-        system=system,
-        messages=[{"role": "user", "content": user}],
-        output_config={"format": {"type": "json_schema", "schema": output_schema(review)}},
-    )
-    data = json.loads(next(block.text for block in response.content if block.type == "text"))
+    data = parse_json(client(system, user, output_schema(review)))
     data.update(model_version=MODEL, prompt_version=PROMPT_VERSION, prompt_date=str(date.today()))
     return data
 

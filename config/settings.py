@@ -3,6 +3,13 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 
+# Keys live in a git-ignored .env; the shell wins so a deploy can override the file.
+if (BASE_DIR / ".env").is_file():
+    for line in (BASE_DIR / ".env").read_text(encoding="utf-8").splitlines():
+        name, sep, value = line.partition("=")
+        if sep and not line.lstrip().startswith("#"):
+            os.environ.setdefault(name.strip(), value.strip().strip("'\""))
+
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-only-not-for-deployment")
 DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "[::1]"]

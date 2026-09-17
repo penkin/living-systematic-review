@@ -4,11 +4,10 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 
 import yaml
 
-from signal_tool.suggest import EVIDENCE_FIELDS, cache_key, output_schema, suggest, validate
+from signal_tool.suggest import EVIDENCE_FIELDS, cache_key, output_schema, parse_json, suggest, validate
 
 ROOT = Path(__file__).resolve().parents[1]
 REVIEW = yaml.safe_load((ROOT / "review.yaml").read_text(encoding="utf-8"))
@@ -26,23 +25,21 @@ GOOD = {
 
 
 class FakeClient:
-    """Stands in for anthropic.Anthropic. Records the call, returns GOOD as JSON."""
+    """Stands in for build_client(). Records the call, returns GOOD inside a code fence."""
 
     def __init__(self):
         self.calls = []
-        self.messages = SimpleNamespace(create=self._create)
 
-    def _create(self, **kwargs):
-        self.calls.append(kwargs)
-        return SimpleNamespace(content=[SimpleNamespace(type="text", text=json.dumps(GOOD))])
+    def __call__(self, system, user, schema):
+        self.calls.append((system, user, schema))
+        return "```json\n" + json.dumps(GOOD) + "\n```"
 
 
-class RaisingClient:
-    def __init__(self):
-        self.messages = SimpleNamespace(create=self._create)
-
-    def _create(self, **kwargs):
+def RaisingClient():
+    def complete(system, user, schema):
         raise AssertionError("the model was called")
+
+    return complete
 
 
 class CacheTests(unittest.TestCase):
@@ -73,9 +70,9 @@ class CacheTests(unittest.TestCase):
         second = suggest(RECORD, REVIEW, self.run / "model", self.run / "shared", RaisingClient())
         self.assertEqual(len(client.calls), 1)
         self.assertEqual(first["study_design"], second["study_design"], "cohort")
-        call = client.calls[0]
-        self.assertEqual(call["output_config"]["format"]["type"], "json_schema")
-        self.assertIn("Review question", call["system"])
+        system, user, schema = client.calls[0]
+        self.assertIn("Review question", system)
+        self.assertEqual(schema, output_schema(REVIEW))
         self.assertTrue((self.run / "model" / cache_key(RECORD)).is_file())
 
     def test_the_cache_key_changes_with_the_text(self):
@@ -110,6 +107,10 @@ class ValidateTests(unittest.TestCase):
         self.assertEqual(out["evidence"]["study_design"], "A cohort of 40 adults")
         self.assertEqual(out["evidence"]["relevance"], "")
         self.assertEqual(out["evidence_missing"], ["relevance"])
+
+    def test_parse_json_strips_fences_and_preamble(self):
+        self.assertEqual(parse_json('Here you go:\n```json\n{"a": 1}\n```'), {"a": 1})
+        self.assertEqual(parse_json('{"a": 1}'), {"a": 1})
 
     def test_schema_enumerates_the_review_lists(self):
         schema = output_schema(REVIEW)
