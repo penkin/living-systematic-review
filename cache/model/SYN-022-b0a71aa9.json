@@ -1,0 +1,39 @@
+{
+ "study_design": "other",
+ "relevance": "Direct",
+ "outcome_touched": "O7",
+ "intervention_tested": "Yes",
+ "answers_question": "Yes",
+ "equity_relevance": {
+  "level": "Group included",
+  "factors": [
+   "Age"
+  ]
+ },
+ "harm_reported": "Yes",
+ "new_intervention_class": {
+  "value": "No",
+  "class_name": ""
+ },
+ "policy_relevance": "Direct",
+ "countries_iso3": [
+  "ZAF"
+ ],
+ "sample_size": 14,
+ "evidence": {
+  "study_design": "we reviewed incidents recorded over two hot seasons",
+  "relevance": "community cooling centre use during heat events",
+  "outcome_touched": "Following the rollout of 14 municipal cooling centres",
+  "intervention_tested": "14 municipal cooling centres",
+  "answers_question": "Cooling centre design guidance requires revision before further scale-up",
+  "equity_relevance": "three falls among older attendees",
+  "harm_reported": "clusters of gastrointestinal illness linked to shared water dispensers",
+  "new_intervention_class": "",
+  "policy_relevance": "Cooling centre design guidance requires revision",
+  "countries_iso3": "eThekwini",
+  "sample_size": "14 municipal cooling centres"
+ },
+ "model_version": "stub",
+ "prompt_version": "p1",
+ "prompt_date": "2026-09-17"
+}

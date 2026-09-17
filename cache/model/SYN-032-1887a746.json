@@ -1,0 +1,39 @@
+{
+ "study_design": "non-randomised",
+ "relevance": "Direct",
+ "outcome_touched": "O7",
+ "intervention_tested": "Yes",
+ "answers_question": "Yes",
+ "equity_relevance": {
+  "level": "Group included",
+  "factors": [
+   "Age"
+  ]
+ },
+ "harm_reported": "No",
+ "new_intervention_class": {
+  "value": "No",
+  "class_name": ""
+ },
+ "policy_relevance": "Some",
+ "countries_iso3": [
+  "ZWE"
+ ],
+ "sample_size": 8,
+ "evidence": {
+  "study_design": "Sample size was small and the study was not randomised",
+  "relevance": "Shade structures in school playgrounds and pupil heat exposure",
+  "outcome_touched": "Playground temperature and pupil-reported heat discomfort",
+  "intervention_tested": "Shade sails were installed at four primary schools",
+  "answers_question": "Shaded schools recorded lower playground temperatures and fewer reported heat symptoms",
+  "equity_relevance": "pupil-reported heat discomfort",
+  "harm_reported": "",
+  "new_intervention_class": "",
+  "policy_relevance": "a pilot study",
+  "countries_iso3": "Bulawayo",
+  "sample_size": "four primary schools and compared with four matched schools"
+ },
+ "model_version": "stub",
+ "prompt_version": "p1",
+ "prompt_date": "2026-09-17"
+}

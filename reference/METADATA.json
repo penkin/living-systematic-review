@@ -1,0 +1,10 @@
+{
+  "worldbank_income": {
+    "source": "https://api.worldbank.org/v2/country?format=json&per_page=400",
+    "downloaded": "2026-09-17",
+    "countries": 217
+  },
+  "iso3166_regions": {
+    "source": "https://github.com/lukes/ISO-3166-Countries-with-Regional-Codes"
+  }
+}

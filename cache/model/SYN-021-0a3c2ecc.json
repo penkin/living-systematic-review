@@ -1,0 +1,37 @@
+{
+ "study_design": "non-randomised",
+ "relevance": "Direct",
+ "outcome_touched": "O8",
+ "intervention_tested": "Yes",
+ "answers_question": "Yes",
+ "equity_relevance": {
+  "level": "None",
+  "factors": []
+ },
+ "harm_reported": "No",
+ "new_intervention_class": {
+  "value": "No",
+  "class_name": ""
+ },
+ "policy_relevance": "Direct",
+ "countries_iso3": [
+  "BFA"
+ ],
+ "sample_size": null,
+ "evidence": {
+  "study_design": "an interrupted time-series design",
+  "relevance": "Evaluation of a municipal heat early warning system",
+  "outcome_touched": "A heat early warning system was introduced in 2023",
+  "intervention_tested": "SMS alerts, radio broadcasts and community health worker activation",
+  "answers_question": "Clinic presentations declined following implementation",
+  "equity_relevance": "",
+  "harm_reported": "",
+  "new_intervention_class": "",
+  "policy_relevance": "We evaluated alert coverage, household response and heat-related clinic presentations",
+  "countries_iso3": "Ouagadougou",
+  "sample_size": ""
+ },
+ "model_version": "stub",
+ "prompt_version": "p1",
+ "prompt_date": "2026-09-17"
+}

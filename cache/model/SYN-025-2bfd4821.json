@@ -1,0 +1,39 @@
+{
+ "study_design": "cohort",
+ "relevance": "Not relevant",
+ "outcome_touched": "NONE",
+ "intervention_tested": "No",
+ "answers_question": "No",
+ "equity_relevance": {
+  "level": "Group included",
+  "factors": [
+   "Age"
+  ]
+ },
+ "harm_reported": "No",
+ "new_intervention_class": {
+  "value": "No",
+  "class_name": ""
+ },
+ "policy_relevance": "None",
+ "countries_iso3": [
+  "LSO"
+ ],
+ "sample_size": 210,
+ "evidence": {
+  "study_design": "monitored in 210 highland households across a winter season",
+  "relevance": "Cold exposure and acute respiratory infection",
+  "outcome_touched": "increased incidence of acute respiratory infection in children under five",
+  "intervention_tested": "",
+  "answers_question": "",
+  "equity_relevance": "children under five",
+  "harm_reported": "",
+  "new_intervention_class": "",
+  "policy_relevance": "",
+  "countries_iso3": "highland Lesotho",
+  "sample_size": "210 highland households"
+ },
+ "model_version": "stub",
+ "prompt_version": "p1",
+ "prompt_date": "2026-09-17"
+}

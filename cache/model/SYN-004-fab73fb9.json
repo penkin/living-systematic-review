@@ -1,0 +1,39 @@
+{
+ "study_design": "other",
+ "relevance": "Partial",
+ "outcome_touched": "NONE",
+ "intervention_tested": "No",
+ "answers_question": "No",
+ "equity_relevance": {
+  "level": "Group included",
+  "factors": [
+   "Age"
+  ]
+ },
+ "harm_reported": "No",
+ "new_intervention_class": {
+  "value": "No",
+  "class_name": ""
+ },
+ "policy_relevance": "Some",
+ "countries_iso3": [
+  "MWI"
+ ],
+ "sample_size": 22,
+ "evidence": {
+  "study_design": "Daily attendance registers from 22 primary schools",
+  "relevance": "Hot days and primary school absenteeism",
+  "outcome_touched": "Absenteeism rose on days exceeding the 90th percentile",
+  "intervention_tested": "",
+  "answers_question": "",
+  "equity_relevance": "primary school",
+  "harm_reported": "",
+  "new_intervention_class": "",
+  "policy_relevance": "larger effects in schools without classroom ventilation",
+  "countries_iso3": "Blantyre",
+  "sample_size": "22 primary schools"
+ },
+ "model_version": "stub",
+ "prompt_version": "p1",
+ "prompt_date": "2026-09-17"
+}

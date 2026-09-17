@@ -1,0 +1,39 @@
+{
+ "study_design": "cross-sectional",
+ "relevance": "Direct",
+ "outcome_touched": "O4",
+ "intervention_tested": "No",
+ "answers_question": "Yes",
+ "equity_relevance": {
+  "level": "Group included",
+  "factors": [
+   "Occupation"
+  ]
+ },
+ "harm_reported": "No",
+ "new_intervention_class": {
+  "value": "No",
+  "class_name": ""
+ },
+ "policy_relevance": "Some",
+ "countries_iso3": [
+  "TZA"
+ ],
+ "sample_size": 96,
+ "evidence": {
+  "study_design": "monitored in 96 construction workers across 14 sites",
+  "relevance": "Physiological heat strain among construction workers",
+  "outcome_touched": "exceeded recommended physiological strain thresholds",
+  "intervention_tested": "",
+  "answers_question": "Forty-one percent exceeded recommended physiological strain thresholds on at least one shift",
+  "equity_relevance": "construction workers",
+  "harm_reported": "",
+  "new_intervention_class": "",
+  "policy_relevance": "lowest where rotating rest schedules were in place",
+  "countries_iso3": "Dar es Salaam",
+  "sample_size": "96 construction workers"
+ },
+ "model_version": "stub",
+ "prompt_version": "p1",
+ "prompt_date": "2026-09-17"
+}

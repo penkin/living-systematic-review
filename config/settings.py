@@ -46,3 +46,6 @@ RUNS_DIR = Path(os.environ.get("SIGNAL_RUNS_DIR", BASE_DIR / "runs"))
 REVIEW_CONFIG = BASE_DIR / "review.yaml"
 REFERENCE_DIR = BASE_DIR / "reference"
 RUBRIC_CONFIG = BASE_DIR / "rubric.yaml"
+
+# Committed model responses. A run copies its hits from here, so the demo runs offline.
+MODEL_CACHE = BASE_DIR / "cache" / "model"

@@ -1,0 +1,39 @@
+{
+ "study_design": "cross-sectional",
+ "relevance": "Direct",
+ "outcome_touched": "O4",
+ "intervention_tested": "No",
+ "answers_question": "Yes",
+ "equity_relevance": {
+  "level": "Group included",
+  "factors": [
+   "Occupation"
+  ]
+ },
+ "harm_reported": "No",
+ "new_intervention_class": {
+  "value": "No",
+  "class_name": ""
+ },
+ "policy_relevance": "None",
+ "countries_iso3": [
+  "RWA"
+ ],
+ "sample_size": 38,
+ "evidence": {
+  "study_design": "wore chest-mounted sensors for ten working days",
+  "relevance": "heat strain among informal waste workers",
+  "outcome_touched": "Sustained elevations in physiological strain",
+  "intervention_tested": "",
+  "answers_question": "Sustained elevations in physiological strain were recorded during afternoon collection rounds",
+  "equity_relevance": "informal waste workers",
+  "harm_reported": "",
+  "new_intervention_class": "",
+  "policy_relevance": "",
+  "countries_iso3": "Kigali",
+  "sample_size": "Thirty-eight informal waste workers"
+ },
+ "model_version": "stub",
+ "prompt_version": "p1",
+ "prompt_date": "2026-09-17"
+}
