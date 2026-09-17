@@ -1,17 +1,13 @@
-"""Stage 2. One cached model call per record, closed lists in, validated JSON out.
+"""Stage 2. One model call per record, closed lists in, validated JSON out.
 
-Every value here is a suggestion until a human confirms it. The cache is the demo:
-a hit never touches the network, and a miss without a client leaves the record
-visible with model_status "unavailable".
+Every value here is a suggestion until a human confirms it. The caller stores the
+validated response with the record, so a confirmation never repeats the call.
 """
 
-import hashlib
 import json
 import os
-import shutil
 import urllib.request
 from datetime import date
-from pathlib import Path
 
 API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 API_BASE = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
@@ -63,11 +59,6 @@ def build_client():
             return json.load(response)["choices"][0]["message"]["content"]
 
     return complete
-
-
-def cache_key(record):
-    digest = hashlib.sha256(((record.get("title") or "") + (record.get("abstract") or "")).encode("utf-8"))
-    return f"{record['record_id']}-{digest.hexdigest()[:8]}.json"
 
 
 def output_schema(review):
@@ -225,20 +216,6 @@ def validate(data, record, review):
     return out
 
 
-def suggest(record, review, run_cache, shared_cache, client=None):
-    """Cached, validated stage 2 tags for one record, or None when no cache and no client."""
-    key = cache_key(record)
-    run_path, shared_path = Path(run_cache) / key, Path(shared_cache) / key
-    if not run_path.is_file():
-        if shared_path.is_file():
-            run_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(shared_path, run_path)
-        elif client is None:
-            return None
-        else:
-            # The shared copy is what makes a record free on every later upload.
-            text = json.dumps(call_model(record, review, client), indent=1)
-            for path in (run_path, shared_path):
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(text, encoding="utf-8")
-    return validate(json.loads(run_path.read_text(encoding="utf-8")), record, review)
+def suggest(record, review, client):
+    """Validated stage 2 tags for one record. Raises whatever the client raises."""
+    return validate(call_model(record, review, client), record, review)

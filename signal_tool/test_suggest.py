@@ -1,17 +1,20 @@
 import csv
 import json
-import shutil
-import tempfile
 import unittest
 from pathlib import Path
 
 import yaml
 
-from signal_tool.suggest import EVIDENCE_FIELDS, cache_key, output_schema, parse_json, suggest, validate
+from signal_tool.suggest import EVIDENCE_FIELDS, output_schema, parse_json, suggest, validate
 
 ROOT = Path(__file__).resolve().parents[1]
 REVIEW = yaml.safe_load((ROOT / "review.yaml").read_text(encoding="utf-8"))
-SHARED = ROOT / "cache" / "model"
+FIXTURES = Path(__file__).resolve().parent / "testdata" / "model"
+
+
+def cards():
+    with (ROOT / "cards.csv").open(encoding="utf-8-sig", newline="") as handle:
+        return list(csv.DictReader(handle))
 
 RECORD = {"record_id": "SYN-999", "title": "Heat and sleep in Accra", "abstract": "A cohort of 40 adults in Accra."}
 GOOD = {
@@ -42,43 +45,44 @@ def RaisingClient():
     return complete
 
 
-class CacheTests(unittest.TestCase):
-    def setUp(self):
-        self.run = Path(tempfile.mkdtemp())
-        self.addCleanup(shutil.rmtree, self.run)
+class FixtureClient:
+    """Serves the recorded response for the record named in the prompt, by record_id only."""
 
-    def cards(self):
-        with (ROOT / "cards.csv").open(encoding="utf-8-sig", newline="") as handle:
-            return list(csv.DictReader(handle))
+    def __init__(self):
+        self.calls = 0
 
-    def test_every_card_is_cached_and_none_calls_the_model(self):
-        for record in self.cards():
+    def __call__(self, system, user, schema):
+        self.calls += 1
+        record_id = user.splitlines()[0].removeprefix("record_id: ")
+        hits = sorted(FIXTURES.glob(f"{record_id}-*.json"))
+        if not hits:
+            raise LookupError(f"no fixture for {record_id}")
+        return hits[0].read_text(encoding="utf-8")
+
+
+class SuggestTests(unittest.TestCase):
+    def test_every_card_has_a_fixture_that_validates(self):
+        client = FixtureClient()
+        for record in cards():
             with self.subTest(record=record["record_id"]):
-                tags = suggest(record, REVIEW, self.run / "model", SHARED, client=RaisingClient())
+                tags = suggest(record, REVIEW, client)
                 self.assertTrue(tags["model_version"])
                 self.assertEqual(tags["validation_errors"], [])
-        self.assertEqual(len(list((self.run / "model").iterdir())), 34)
+        self.assertEqual(client.calls, 34)
 
-    def test_a_miss_without_a_client_returns_none(self):
-        self.assertIsNone(suggest(RECORD, REVIEW, self.run / "model", SHARED))
-        self.assertFalse((self.run / "model").exists())
-
-    def test_a_miss_with_a_client_calls_once_and_caches(self):
+    def test_calls_the_client_once_with_the_schema(self):
         client = FakeClient()
-        first = suggest(RECORD, REVIEW, self.run / "model", self.run / "shared", client)
-        second = suggest(RECORD, REVIEW, self.run / "model", self.run / "shared", RaisingClient())
+        tags = suggest(RECORD, REVIEW, client)
         self.assertEqual(len(client.calls), 1)
-        self.assertEqual(first["study_design"], second["study_design"], "cohort")
+        self.assertEqual(tags["study_design"], "cohort")
         system, user, schema = client.calls[0]
         self.assertIn("Review question", system)
+        self.assertTrue(user.startswith("record_id: SYN-999\n"))
         self.assertEqual(schema, output_schema(REVIEW))
-        self.assertTrue((self.run / "model" / cache_key(RECORD)).is_file())
-        self.assertTrue((self.run / "shared" / cache_key(RECORD)).is_file())
 
-    def test_the_cache_key_changes_with_the_text(self):
-        changed = dict(RECORD, abstract="Different abstract.")
-        self.assertNotEqual(cache_key(RECORD), cache_key(changed))
-        self.assertTrue(cache_key(RECORD).startswith("SYN-999-"))
+    def test_a_client_error_propagates(self):
+        with self.assertRaises(LookupError):
+            suggest(RECORD, REVIEW, FixtureClient())
 
 
 class ValidateTests(unittest.TestCase):

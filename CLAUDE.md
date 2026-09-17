@@ -5,7 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-.venv/bin/python manage.py runserver    # serve the tool at http://127.0.0.1:8000/
+.venv/bin/python manage.py migrate      # create or update db.sqlite3, once per checkout and after a model change
+.venv/bin/python manage.py runserver --noreload   # serve the tool at http://127.0.0.1:8000/
 .venv/bin/python manage.py test         # run every test, web and signal_tool
 .venv/bin/python manage.py test web.tests.UploadTests.test_header_only_is_rejected
 .venv/bin/python -m signal_tool.reference   # refresh reference/worldbank_income.json and METADATA.json
@@ -13,8 +14,8 @@ uv pip install --python .venv/bin/python -r requirements.txt
 npm install && npm run css                  # rebuild web/static/app.css after a template change
 ```
 
-Set `OPENROUTER_API_KEY` to let stage 2 call the model on a cache miss. Without it the
-pipeline runs from the cache alone, and a miss leaves the record listed but unscored.
+Set `OPENROUTER_API_KEY` so stage 2 can call the model. Without it the upload page
+refuses the file. A model call that fails leaves the record listed but unscored.
 `SIGNAL_MODEL` picks the model, default `anthropic/claude-haiku-4.5`. `SIGNAL_CONCURRENCY`
 sets how many model calls run side by side, default 8. `OPENROUTER_BASE_URL`
 picks the endpoint, default `https://openrouter.ai/api/v1`; any OpenAI-compatible chat
@@ -25,6 +26,11 @@ Put the variables in a git-ignored `.env` at the repo root (copy `.env.example`)
 Recreate the environment with `uv venv --python 3.13 .venv`. Django 6 needs Python
 3.12 or newer; the system `python3` is 3.9 and will not do.
 
+Run the server with `--noreload`. Tagging runs in a thread inside the server process,
+and the autoreloader restarts that process on a file save, which leaves the run stuck
+in `processing`. Set `SIGNAL_DB` to put the SQLite file somewhere other than
+`db.sqlite3` at the repo root.
+
 ## What the tool is
 
 A living systematic review gets new records. The tool tags each record, looks up how
@@ -34,36 +40,46 @@ The tool suggests.
 
 ## Layout
 
-- `config/` — Django settings, URLs, WSGI. No database: `DATABASES = {}`, and
-  `admin`, `auth` and `sessions` stay out of `INSTALLED_APPS` because all three want
-  one.
-- `web/` — `views.py`, the templates, `static/app.css`, `tests.py`. No JavaScript.
+- `config/` — Django settings, URLs, WSGI. SQLite through the Django ORM, in WAL mode
+  so the run page can read while the tagging thread writes. No `admin`, `auth` or
+  `sessions`: nobody logs in.
+- `web/` — `models.py`, `tasks.py`, `views.py`, the templates, `static/app.css`,
+  `tests.py`, `migrations/`.
   Pages: `/` upload, `run/<uuid>/` the ranked list, `run/<uuid>/record/<id>/` one
   record with its score breakdown and the confirm/override controls,
   `run/<uuid>/signals.csv` the download, `run/<uuid>/evaluate/` the D7 checks.
-- `signal_tool/` — the pipeline. **It must never import Django.** Stage 3 re-runs
-  every time a reviewer confirms or overrides a tag, so it must be callable without
-  an HTTP request. One module per stage, tests beside them as `test_*.py`:
+  - `models.py` — four tables. `Run` (uuid, status `processing`, `done` or `failed`,
+    `error`, `handsort` text). `Record` (the seven `cards.csv` columns, the validated
+    stage 2 `model_response` JSON, `model_status`, `model_error`). `Tag` (one row per
+    field per record: `value`, `status` `rule`, `suggested`, `confirmed` or
+    `overridden`, `evidence`). `Result` (one per record once tagged: `signal_level`,
+    `signal_score`, and `detail`, the full `build_row` dict the pages render).
+    A record with no `Result` is still being tagged.
+  - `tasks.py` — `start_run` puts `process_run` on a daemon thread. Stage 1 over the
+    whole batch, then stage 2 calls in a `ThreadPoolExecutor`; only the orchestrating
+    thread touches the database. `save_result` runs stage 3 for one record and is
+    what a confirm calls. `config()` reads the two yaml files and the reference data.
+- `signal_tool/` — the pipeline. **It must never import Django.** It takes and returns
+  plain dicts; `web/tasks.py` moves them to and from the tables. One module per
+  stage, tests beside them as `test_*.py`:
   - `tagging.py` — stage 1. `geography.py` — reference loader and the country, region
     and income resolver. `reference.py` — the one-off World Bank download.
-  - `suggest.py` — stage 2, the cached model call and the closed-list validation.
+  - `suggest.py` — stage 2, `suggest(record, review, client)`: the model call and the
+    closed-list validation. `build_client()` returns None without `OPENROUTER_API_KEY`.
   - `scoring.py` — stage 3, `score_record(tags, review, rules)`.
-  - `pipeline.py` — `run()` for an upload, `rescore()` after a confirmation, the
-    `signals.csv` columns. `evaluate.py` — the D7 checks.
+  - `pipeline.py` — `tags_for()` turns a tagged record and its model response into
+    the tag entry, `build_row()` scores one record into a `signals.csv` row,
+    `write_csv()` writes the rows. `evaluate.py` — the D7 checks.
+  - `testdata/model/<record_id>-<hash8>.json` — 34 real model responses for
+    `cards.csv`, used as test fixtures. `FixtureClient` in `test_suggest.py` serves
+    them by `record_id`.
 - `rubric.yaml` — every rule: record types and lanes, criteria A–G, thresholds,
   overrides, switches, reason templates, suggested actions, `regret_top_n`.
 - `review.yaml` — the review as data: outcomes with certainty, closed lists, regions.
 - `reference/` — `iso3166_regions.csv`, `worldbank_income.json`, and `METADATA.json`
   with the download date.
-- `cache/model/<record_id>-<hash8>.json` — committed model responses for
-  `cards.csv`. The hash is the first 8 hex chars of sha256(title + abstract), so an
-  edited abstract is a miss. The 34 files are responses from the model named in
-  `model_version`. A miss with `OPENROUTER_API_KEY` set writes a new one here.
-- `runs/<uuid>/` — one directory per upload, git-ignored. It holds `cards.csv`,
-  `model/` (cache hits copied in, plus any new responses), `tags.json` (every tag
-  with its status `rule`, `suggested`, `confirmed` or `overridden`), `signals.csv`,
-  and `handsort.csv` once a reviewer uploads one. The uuid is in the URL. Delete the
-  directory and the run is gone.
+- `db.sqlite3` — every run, git-ignored. The run uuid is in the URL. Delete the `Run`
+  row and its records, tags and results go with it.
 
 ## Hard rules
 
@@ -75,8 +91,8 @@ The tool suggests.
 - Never infer outcome certainty. Look it up in `review.yaml`.
 - Never hardcode geography. Countries, regions, and income groups come from
   `reference/` and from the World Bank API.
-- Never require a network connection at demo time. Cache every model response.
-  Never repeat the stage 2 model call because a human changed a tag.
+- Never repeat the stage 2 model call because a human changed a tag. The validated
+  response is stored in `Record.model_response`; a confirm re-runs stage 3 from it.
 - Never write the rubric, the thresholds, the overrides, or the lane rules into code.
   They live in `rubric.yaml`. The review team edits them without a developer present.
 - Never drop a record. A separate-lane type leaves the scoring, not the output.
@@ -89,7 +105,7 @@ The tool suggests.
 
 1. **Stage 1, deterministic.** `record_type`, `lane`, countries by exact ISO 3166
    name match, recency, in-batch duplicates, `secondary_report`, `non_english`.
-2. **Stage 2, suggested.** One cached model call per record, closed lists in and
+2. **Stage 2, suggested.** One model call per record, closed lists in and
    validated JSON out, each value with a verbatim evidence phrase. The geography
    resolver then unions rule-matched and model-inferred countries.
 3. **Stage 3, lookup and score.** Certainty lookup from `review.yaml`, criteria A–G
@@ -99,8 +115,12 @@ The tool suggests.
 
 Stages 1 and 2 run once per upload, for every record including the separate lane, so
 a `record_type` override can move a record into scoring without a model call. Stage 3
-re-runs for the whole run on every confirmation, so keep it pure: tags plus
+re-runs for the one record on every confirmation, so keep it pure: tags plus
 `review.yaml` plus the rubric in, criteria and level out.
+
+The upload page submits as soon as the reviewer picks a file. The run page refreshes
+every three seconds while the run is `processing` and shows a spinner on each record
+that has no `Result` yet.
 
 Read `SPEC.md` section 4 before you change the decision tree. Read section 6 before
 you change the rubric. Read section 5 to find which stage produces a field.
@@ -112,7 +132,8 @@ Reviewers, not developers, read the pages. Keep them simple.
 - The style is Tailwind CSS v4 with DaisyUI v5, built once into `web/static/app.css`
   with `npm run css` (`npm install` first; `node_modules/` is git-ignored). Tailwind
   reads the class names from `web/templates/`, so rebuild the CSS after any template
-  change and commit the built file. No CDN, no custom CSS, no JavaScript.
+  change and commit the built file. No CDN, no custom CSS. JavaScript is fine where a
+  native control does not do the job; the upload form uses one `onchange` attribute.
 - `web/templates/_badge.html` is the one place the level colours live. Include it
   with `level=`; an empty level renders "Not ranked".
 - Plain words on screen, raw ids in the CSV. Field labels live in `LABELS` in
@@ -148,5 +169,5 @@ Reviewers, not developers, read the pages. Keep them simple.
   score. `SPEC.md:177` still shows the old mapping.
 - `review.yaml` carries `absent_contexts` for O5, O7 and O8 only. The absent-context
   override never fires for the other six outcomes until the team fills the list.
-- `cache/model/` holds real responses from `anthropic/claude-haiku-4.5`. Delete a file
-  and the next upload calls the model for that record and writes the file back.
+- `signal_tool/testdata/model/` holds real responses from `anthropic/claude-haiku-4.5`.
+  They only serve the tests. Every upload calls the model live.

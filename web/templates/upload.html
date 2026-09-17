@@ -17,7 +17,7 @@
         {% csrf_token %}
         <label class="flex flex-col gap-1">
           <span class="font-medium">Records file</span>
-          <input type="file" name="cards" accept=".csv,text/csv" required class="file-input w-full">
+          <input type="file" name="cards" accept=".csv,text/csv" required class="file-input w-full" onchange="this.form.submit()">
           <span class="text-sm text-base-content/60">A CSV with the columns <code>record_id</code>, <code>title</code> and <code>abstract</code>. Covidence, Rayyan and EPPI-Reviewer exports work as they are.</span>
         </label>
         <div class="card-actions"><button type="submit" class="btn btn-primary">Rank the records</button></div>

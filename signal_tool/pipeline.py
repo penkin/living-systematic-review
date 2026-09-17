@@ -1,19 +1,14 @@
-"""Runs the three stages for one run directory and writes tags.json and signals.csv.
+"""The field map between the stages and stage 3 for one record.
 
-Stages 1 and 2 run once, in `run`. Stage 3 re-runs from tags.json alone in `rescore`,
-so a reviewer's confirmation never repeats a model call.
+`tags_for` shapes stage 1 and stage 2 output into an entry; `build_row` turns an entry
+into one signals.csv row. Both are pure, so a reviewer's confirmation re-runs stage 3
+from the stored entry and never repeats a model call.
 """
 
 import csv
-import json
-import os
-from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 
 from signal_tool.geography import resolve
 from signal_tool.scoring import score_record
-from signal_tool.suggest import suggest
-from signal_tool.tagging import tag
 
 # SPEC.md section 3: the five fields a human confirms or overrides.
 CONFIRMABLE = ("record_type", "relevance", "outcome_touched", "harm_reported", "new_intervention_class")
@@ -57,66 +52,34 @@ COLUMNS = (
 )
 
 
-def read_cards(run_dir):
-    with (Path(run_dir) / "cards.csv").open(encoding="utf-8-sig", newline="") as handle:
-        return list(csv.DictReader(handle))
-
-
-def read_tags(run_dir):
-    return json.loads((Path(run_dir) / "tags.json").read_text(encoding="utf-8"))
-
-
-def write_tags(run_dir, tagged):
-    (Path(run_dir) / "tags.json").write_text(json.dumps(tagged, indent=1), encoding="utf-8")
-
-
 def _dig(data, key):
     if isinstance(key, tuple):
         return (data.get(key[0]) or {}).get(key[1])
     return data.get(key)
 
 
-def _tags_for(record, model):
+def model_meta(model):
+    """The version and status fields of a validated stage 2 response, or unavailable."""
+    if model is None:
+        return {"model_status": "unavailable"}
+    return {k: model.get(k) for k in MODEL_META}
+
+
+def tags_for(record, model):
+    """One entry: stage 1 tags as rules, stage 2 tags as suggestions, plus the model meta."""
     tags = {f: {"value": record.get(f), "status": "rule", "evidence": ""} for f in STAGE_ONE}
-    meta = {"model_status": "unavailable"}
     if model is not None:
         evidence = model.get("evidence") or {}
         for field, (key, evidence_key) in STAGE_TWO.items():
             tags[field] = {"value": _dig(model, key), "status": "suggested", "evidence": evidence.get(evidence_key, "")}
-        meta = {k: model.get(k) for k in MODEL_META}
-    return {"tags": tags, "model": meta}
+    return {"tags": tags, "model": model_meta(model)}
 
 
-def run(run_dir, review, rules, ref, shared_cache, client=None):
-    """Stages 1 to 3 for a fresh upload. Writes tags.json and signals.csv."""
-    run_dir = Path(run_dir)
-    records = tag(read_cards(run_dir), rules, review, ref)
-    # Separate-lane records are tagged too, so a record_type override can still score
-    # without a second model call. One call per record keeps the cache per record; the
-    # calls run side by side because a single call takes tens of seconds.
-    workers = int(os.environ.get("SIGNAL_CONCURRENCY", "8"))
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        models = list(pool.map(lambda r: suggest(r, review, run_dir / "model", shared_cache, client), records))
-    tagged = {record["record_id"]: _tags_for(record, model) for record, model in zip(records, models)}
-    write_tags(run_dir, tagged)
-    return rescore(run_dir, review, rules, ref)
-
-
-def build_rows(run_dir, review, rules, ref):
-    """Stage 3 for every record, from tags.json. Writes nothing."""
-    tagged = read_tags(run_dir)
-    return [build_row(record, tagged[record["record_id"]], review, rules, ref) for record in read_cards(run_dir)]
-
-
-def rescore(run_dir, review, rules, ref):
-    """Stage 3 only, from tags.json. Rewrites signals.csv and returns the rows."""
-    run_dir = Path(run_dir)
-    rows = build_rows(run_dir, review, rules, ref)
-    with (run_dir / "signals.csv").open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=COLUMNS, extrasaction="ignore")
-        writer.writeheader()
-        writer.writerows({k: _cell(v) for k, v in row.items()} for row in rows)
-    return rows
+def write_csv(rows, handle):
+    """signals.csv: every row in COLUMNS order, lists joined with semicolons."""
+    writer = csv.DictWriter(handle, fieldnames=COLUMNS, extrasaction="ignore")
+    writer.writeheader()
+    writer.writerows({k: _cell(v) for k, v in row.items()} for row in rows)
 
 
 def _cell(value):
