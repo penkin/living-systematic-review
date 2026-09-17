@@ -19,21 +19,35 @@ pipeline runs from the cache alone, and a miss leaves the record listed but unsc
 Recreate the environment with `uv venv --python 3.13 .venv`. Django 6 needs Python
 3.12 or newer; the system `python3` is 3.9 and will not do.
 
+## What the tool is
+
+A living systematic review gets new records. The tool tags each record, looks up how
+certain the review already is about the outcome the record touches, and ranks it
+High / Moderate / Low with a reason of fifteen words or fewer. The reviewer decides.
+The tool suggests.
+
 ## Layout
 
 - `config/` — Django settings, URLs, WSGI. No database: `DATABASES = {}`, and
   `admin`, `auth` and `sessions` stay out of `INSTALLED_APPS` because all three want
   one.
-- `web/` — views, templates, tests. The web layer only.
+- `web/` — `views.py`, four templates, `tests.py`. No JavaScript. Pages: `/` upload,
+  `run/<uuid>/` the ranked list with the confirm/override controls,
+  `run/<uuid>/signals.csv` the download, `run/<uuid>/evaluate/` the D7 checks.
 - `signal_tool/` — the pipeline. **It must never import Django.** Stage 3 re-runs
   every time a reviewer confirms or overrides a tag, so it must be callable without
-  an HTTP request. One module per stage:
+  an HTTP request. One module per stage, tests beside them as `test_*.py`:
   - `tagging.py` — stage 1. `geography.py` — reference loader and the country, region
     and income resolver. `reference.py` — the one-off World Bank download.
   - `suggest.py` — stage 2, the cached model call and the closed-list validation.
   - `scoring.py` — stage 3, `score_record(tags, review, rules)`.
   - `pipeline.py` — `run()` for an upload, `rescore()` after a confirmation, the
     `signals.csv` columns. `evaluate.py` — the D7 checks.
+- `rubric.yaml` — every rule: record types and lanes, criteria A–G, thresholds,
+  overrides, switches, reason templates, suggested actions, `regret_top_n`.
+- `review.yaml` — the review as data: outcomes with certainty, closed lists, regions.
+- `reference/` — `iso3166_regions.csv`, `worldbank_income.json`, and `METADATA.json`
+  with the download date.
 - `cache/model/<record_id>-<hash8>.json` — committed model responses for
   `cards.csv`. The hash is the first 8 hex chars of sha256(title + abstract), so an
   edited abstract is a miss. The 34 files are hand-written stubs with
@@ -43,19 +57,6 @@ Recreate the environment with `uv venv --python 3.13 .venv`. Django 6 needs Pyth
   with its status `rule`, `suggested`, `confirmed` or `overridden`), `signals.csv`,
   and `handsort.csv` once a reviewer uploads one. The uuid is in the URL. Delete the
   directory and the run is gone.
-
-Stages 1 and 2 run once per upload, for every record including the separate lane, so
-a `record_type` override can move a record into scoring without a model call. Stage 3
-re-runs for the whole run on every confirmation, so keep it pure: tags plus
-`review.yaml` plus the rubric in, criteria and level out. Never repeat the stage 2
-model call because a human changed a tag.
-
-## What the tool is
-
-A living systematic review gets new records. The tool tags each record, looks up how
-certain the review already is about the outcome the record touches, and ranks it
-High / Moderate / Low with a reason of fifteen words or fewer. The reviewer decides.
-The tool suggests.
 
 ## Hard rules
 
@@ -68,6 +69,7 @@ The tool suggests.
 - Never hardcode geography. Countries, regions, and income groups come from
   `reference/` and from the World Bank API.
 - Never require a network connection at demo time. Cache every model response.
+  Never repeat the stage 2 model call because a human changed a tag.
 - Never write the rubric, the thresholds, the overrides, or the lane rules into code.
   They live in `rubric.yaml`. The review team edits them without a developer present.
 - Never drop a record. A separate-lane type leaves the scoring, not the output.
@@ -79,18 +81,34 @@ The tool suggests.
 ## Pipeline
 
 1. **Stage 1, deterministic.** `record_type`, `lane`, countries by exact ISO 3166
-   name match, recency, in-batch duplicates. Separate-lane types leave the pipeline
-   and never get a signal level.
+   name match, recency, in-batch duplicates, `secondary_report`, `non_english`.
 2. **Stage 2, suggested.** One cached model call per record, closed lists in and
    validated JSON out, each value with a verbatim evidence phrase. The geography
    resolver then unions rule-matched and model-inferred countries.
 3. **Stage 3, lookup and score.** Certainty lookup from `review.yaml`, criteria A–G
-   to a total of 0–15, overrides, threshold, then the reason template.
+   to a total of 0–15, threshold, region cap, overrides, then the reason template.
 4. **Output.** `signals.csv`, a flat file a reviewer sorts in a spreadsheet, plus
    blank reviewer columns and the version fields.
 
+Stages 1 and 2 run once per upload, for every record including the separate lane, so
+a `record_type` override can move a record into scoring without a model call. Stage 3
+re-runs for the whole run on every confirmation, so keep it pure: tags plus
+`review.yaml` plus the rubric in, criteria and level out.
+
 Read `SPEC.md` section 4 before you change the decision tree. Read section 6 before
 you change the rubric. Read section 5 to find which stage produces a field.
+
+## Web pages
+
+Reviewers, not developers, read the pages. Keep them simple.
+
+- One style sheet in `web/templates/base.html` holds every colour token and
+  component: level badges, status pills, one button, one card. Build every page from
+  those parts. Do not add a second style.
+- Plain words on screen, raw ids in the CSV. Field labels live in `LABELS` in
+  `web/views.py`. Option labels come from `review.yaml` and `rubric.yaml`.
+- Each record shows its level, its reason and its next step. The five tag controls
+  sit behind one "Check the tags" control per record.
 
 ## Data contracts
 
@@ -100,27 +118,21 @@ you change the rubric. Read section 5 to find which stage produces a field.
   The set is seeded to trip the equity test: one French record, one 2025 record, one
   retracted article, one protocol, one preprint, one commentary, one conference
   abstract.
-- `review.yaml` — the review as data. Nine outcomes `O1`–`O9`, each with `certainty`
-  and `n_studies`. `absent_contexts` uses ISO3 codes or UN M49 region labels, so the
-  absent-context override matches mechanically. The file also holds
-  `out_of_scope_outcomes`, `intervention_classes_represented`, and `allowed_values`,
-  the closed lists the tagger must pick from.
-- `reference/iso3166_regions.csv` — UN M49 `region` and `sub-region` per country.
-  World Bank income groups come from
-  `https://api.worldbank.org/v2/country?format=json&per_page=400`, field
-  `incomeLevel`. Record the download date; `SPEC.md` expects a dated `METADATA.json`
-  beside the reference data.
-- `docs/` — the three source documents, in PDF and DOCX. They are binary. Use the
-  `pdf` or `docx` skill to read them. `SPEC.md` already carries their content.
+- `review.yaml` — nine outcomes `O1`–`O9`, each with `certainty` and `n_studies`.
+  `absent_contexts` uses ISO3 codes or UN M49 region labels, so the absent-context
+  override matches mechanically. The file also holds `out_of_scope_outcomes`,
+  `intervention_classes_represented`, and `allowed_values`, the closed lists the
+  tagger must pick from.
+- `handsort.csv` — the reviewer's own sort for the D7 checks. Columns `record_id`
+  and `hand_level` with `HIGH`, `MODERATE` or `LOW`.
 
-## Known gaps
+## Decisions and gaps
 
-Do not pick a side on either of these silently.
-
-- Criterion A is decided: the sum of three yes/no parts, `intervention_tested`,
+- Criterion A is the sum of three yes/no parts, `intervention_tested`,
   `answers_question`, and `lmic_setting == Yes`, one point each. The `Mixed` setting
-  earns 0 in A and 1 in B. `relevance` (Direct, Partial, Not relevant) stays a tagged,
-  confirmable field but feeds no score. `SPEC.md:177` still shows the old mapping.
-- `review.yaml` carries no `absent_contexts` for O1, O2, O3, O4, O6, or O9, and no
-  `evidence_contexts` beyond O1. The absent-context override fires on a subset of
-  outcomes only.
+  earns 0 in A and 1 in B. `relevance` stays a tagged, confirmable field but feeds no
+  score. `SPEC.md:177` still shows the old mapping.
+- `review.yaml` carries `absent_contexts` for O5, O7 and O8 only. The absent-context
+  override never fires for the other six outcomes until the team fills the list.
+- Every file in `cache/model/` is a hand-written stub. Set `ANTHROPIC_API_KEY`,
+  delete the stubs and upload `cards.csv` to replace them with real responses.
