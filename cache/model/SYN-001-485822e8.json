@@ -1,0 +1,39 @@
+{
+ "study_design": "cohort",
+ "relevance": "Direct",
+ "outcome_touched": "O5",
+ "intervention_tested": "No",
+ "answers_question": "Yes",
+ "equity_relevance": {
+  "level": "Results by factor",
+  "factors": [
+   "Place of residence"
+  ]
+ },
+ "harm_reported": "No",
+ "new_intervention_class": {
+  "value": "No",
+  "class_name": ""
+ },
+ "policy_relevance": "Some",
+ "countries_iso3": [
+  "KEN"
+ ],
+ "sample_size": 2340,
+ "evidence": {
+  "study_design": "We followed 2,340 pregnancies",
+  "relevance": "Ambient heat exposure and preterm birth",
+  "outcome_touched": "increased odds of preterm birth",
+  "intervention_tested": "",
+  "answers_question": "Exposure to the highest temperature quintile in the final gestational month was associated with increased odds of preterm birth",
+  "equity_relevance": "Effects were concentrated among women in informal settlements",
+  "harm_reported": "",
+  "new_intervention_class": "",
+  "policy_relevance": "three public maternity units in Nairobi",
+  "countries_iso3": "Nairobi",
+  "sample_size": "2,340 pregnancies"
+ },
+ "model_version": "stub",
+ "prompt_version": "p1",
+ "prompt_date": "2026-09-17"
+}

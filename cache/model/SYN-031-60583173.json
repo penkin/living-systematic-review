@@ -1,0 +1,37 @@
+{
+ "study_design": "other",
+ "relevance": "Direct",
+ "outcome_touched": "O9",
+ "intervention_tested": "No",
+ "answers_question": "Yes",
+ "equity_relevance": {
+  "level": "None",
+  "factors": []
+ },
+ "harm_reported": "No",
+ "new_intervention_class": {
+  "value": "No",
+  "class_name": ""
+ },
+ "policy_relevance": "None",
+ "countries_iso3": [
+  "ZMB"
+ ],
+ "sample_size": null,
+ "evidence": {
+  "study_design": "CONFERENCE ABSTRACT ONLY",
+  "relevance": "Heat events and mental health service attendance",
+  "outcome_touched": "attendance at mental health services in Lusaka during declared heat events",
+  "intervention_tested": "",
+  "answers_question": "Attendance appeared elevated during heat events",
+  "equity_relevance": "",
+  "harm_reported": "",
+  "new_intervention_class": "",
+  "policy_relevance": "",
+  "countries_iso3": "Lusaka",
+  "sample_size": ""
+ },
+ "model_version": "stub",
+ "prompt_version": "p1",
+ "prompt_date": "2026-09-17"
+}

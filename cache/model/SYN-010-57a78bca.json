@@ -1,0 +1,37 @@
+{
+ "study_design": "other",
+ "relevance": "Not relevant",
+ "outcome_touched": "NONE",
+ "intervention_tested": "No",
+ "answers_question": "No",
+ "equity_relevance": {
+  "level": "None",
+  "factors": []
+ },
+ "harm_reported": "No",
+ "new_intervention_class": {
+  "value": "No",
+  "class_name": ""
+ },
+ "policy_relevance": "None",
+ "countries_iso3": [
+  "ZAF"
+ ],
+ "sample_size": null,
+ "evidence": {
+  "study_design": "linked to daily temperature",
+  "relevance": "assault-related emergency presentations",
+  "outcome_touched": "Presentations increased on hotter days",
+  "intervention_tested": "",
+  "answers_question": "",
+  "equity_relevance": "",
+  "harm_reported": "",
+  "new_intervention_class": "",
+  "policy_relevance": "",
+  "countries_iso3": "Gauteng",
+  "sample_size": ""
+ },
+ "model_version": "stub",
+ "prompt_version": "p1",
+ "prompt_date": "2026-09-17"
+}

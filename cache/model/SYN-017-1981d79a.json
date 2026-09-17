@@ -1,0 +1,39 @@
+{
+ "study_design": "qualitative",
+ "relevance": "Partial",
+ "outcome_touched": "NONE",
+ "intervention_tested": "No",
+ "answers_question": "No",
+ "equity_relevance": {
+  "level": "Group included",
+  "factors": [
+   "Socioeconomic status"
+  ]
+ },
+ "harm_reported": "No",
+ "new_intervention_class": {
+  "value": "No",
+  "class_name": ""
+ },
+ "policy_relevance": "Some",
+ "countries_iso3": [
+  "KEN"
+ ],
+ "sample_size": 48,
+ "evidence": {
+  "study_design": "48 in-depth interviews and six focus groups",
+  "relevance": "How households cope with extreme heat",
+  "outcome_touched": "Participants described sleeping outdoors, wetting bedding, and rescheduling income-generating work",
+  "intervention_tested": "",
+  "answers_question": "",
+  "equity_relevance": "residents of two informal settlements",
+  "harm_reported": "",
+  "new_intervention_class": "",
+  "policy_relevance": "Cost and landlord permission were the dominant barriers to structural adaptation",
+  "countries_iso3": "Nairobi",
+  "sample_size": "48 in-depth interviews"
+ },
+ "model_version": "stub",
+ "prompt_version": "p1",
+ "prompt_date": "2026-09-17"
+}

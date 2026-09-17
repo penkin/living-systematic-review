@@ -13,6 +13,10 @@ review_question: >
 
 update_window: [2025, 2026]
 
+# UN M49 labels. A record with no country in any of these is "out of region" and
+# takes the cap set by rubric.yaml switches.out_of_region_cap.
+in_scope_regions: [Africa]
+
 # Looked up, never judged. Source: H3 Summary of Findings.
 # evidence_contexts / absent_contexts use ISO3 codes or UN M49 region labels so the
 # "absent context" override can be matched mechanically against each record's geography.
@@ -78,6 +82,8 @@ allowed_values:
   relevance: [Direct, Partial, Not relevant]
   yes_no: ["Yes", "No"]
   yes_no_unclear: ["Yes", "No", "Unclear"]
+  equity_level: ["None", "Group included", "Results by factor"]
+  policy_relevance: ["None", "Some", "Direct"]
   progress_plus:
     - Place of residence
     - Race/ethnicity/culture/language

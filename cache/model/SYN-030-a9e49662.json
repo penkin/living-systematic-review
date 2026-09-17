@@ -1,0 +1,37 @@
+{
+ "study_design": "cross-sectional",
+ "relevance": "Not relevant",
+ "outcome_touched": "NONE",
+ "intervention_tested": "No",
+ "answers_question": "No",
+ "equity_relevance": {
+  "level": "None",
+  "factors": []
+ },
+ "harm_reported": "No",
+ "new_intervention_class": {
+  "value": "No",
+  "class_name": ""
+ },
+ "policy_relevance": "Some",
+ "countries_iso3": [
+  "GHA"
+ ],
+ "sample_size": 1450,
+ "evidence": {
+  "study_design": "A cross-sectional survey of 1,450 adults",
+  "relevance": "Urban green space access and physical activity",
+  "outcome_touched": "self-reported physical activity",
+  "intervention_tested": "",
+  "answers_question": "",
+  "equity_relevance": "",
+  "harm_reported": "",
+  "new_intervention_class": "",
+  "policy_relevance": "Implications for urban planning are discussed",
+  "countries_iso3": "Accra",
+  "sample_size": "1,450 adults"
+ },
+ "model_version": "stub",
+ "prompt_version": "p1",
+ "prompt_date": "2026-09-17"
+}
