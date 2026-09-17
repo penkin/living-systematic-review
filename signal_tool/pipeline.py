@@ -137,7 +137,7 @@ def build_row(record, entry, review, rules, ref):
 
     codes = set(tags.get("countries_rule") or []) | set(tags.get("countries_iso3") or [])
     geography = resolve(codes, ref, rules)
-    row.update({k: geography[k] for k in ("countries", "regions", "lmic_setting")})
+    row.update({k: geography[k] for k in ("countries", "country_names", "regions", "lmic_setting")})
 
     if tags["lane"] == "signal" and entry["model"]["model_status"] == "ok":
         row.update(score_record({**tags, **geography}, review, rules))

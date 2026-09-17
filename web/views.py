@@ -20,6 +20,21 @@ REQUIRED_COLUMNS = ("record_id", "title", "abstract")
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
+# Reviewers, not developers, read these pages. Field ids stay in the CSV.
+LABELS = {
+    "record_type": ("Record type", "What kind of publication this is."),
+    "relevance": ("Relevance", "How closely the record matches the review question."),
+    "outcome_touched": ("Outcome", "Which review outcome the record reports on."),
+    "harm_reported": ("Harm reported", "Yes moves the record to High."),
+    "new_intervention_class": ("New kind of intervention", "Yes moves the record to High."),
+}
+GROUP_LABELS = {
+    "lmic_setting": "Low- or middle-income setting",
+    "non_english": "Not in English",
+    "study_design": "Study design",
+    "sample_size": "Study size",
+}
+
 
 def _read_records(handle):
     rows = list(csv.DictReader(handle))
@@ -56,6 +71,14 @@ def _options(review, rules):
     }
 
 
+def _option_labels(review, rules):
+    """Plain words for the values a reviewer picks from."""
+    labels = {o["id"]: f"{o['id']} {o.get('short') or o['name']}" for o in review["outcomes"]}
+    labels[OUTCOME_NONE] = "None of the review outcomes"
+    labels.update({k: k.replace("_", " ").capitalize() for k in rules["record_types"]})
+    return labels
+
+
 def upload(request):
     if request.method != "POST":
         return render(request, "upload.html")
@@ -89,18 +112,23 @@ def run_detail(request, run_id):
     rows = pipeline.build_rows(run_dir, review, rules, ref)
     tagged = pipeline.read_tags(run_dir)
     options = _options(review, rules)
+    option_labels = _option_labels(review, rules)
 
     for row in rows:
         entry = tagged[row["record_id"]]
         row["controls"] = [
-            {"field": field, "options": options[field], **entry["tags"][field]}
+            {
+                "field": field,
+                "label": LABELS[field][0],
+                "help": LABELS[field][1],
+                "options": [(v, option_labels.get(v, v)) for v in options[field]],
+                **entry["tags"][field],
+            }
             for field in pipeline.CONFIRMABLE
             if field in entry["tags"]
         ]
-        row["evidence"] = [
-            (field, cell["evidence"]) for field, cell in entry["tags"].items() if cell.get("evidence")
-        ]
         row["criteria"] = [(c, row[c]) for c in "ABCDEFG"] if row["signal_level"] else []
+        row["changed"] = any(c["status"] in ("confirmed", "overridden") for c in row["controls"])
 
     # HIGH first, then by score. Unscored (model unavailable) rows sit last but stay listed.
     order = {level: i for i, level in enumerate(reversed(rules["levels"]))}
@@ -117,6 +145,7 @@ def run_detail(request, run_id):
             "run_id": run_id,
             "signal": signal,
             "separate": [r for r in rows if r["lane"] == "separate"],
+            "legend": [(level, rules["suggested_action"][level]) for level in reversed(rules["levels"])],
             "low_level": rules["levels"][0],
         },
     )
@@ -169,9 +198,14 @@ def evaluate(request, run_id):
 
     review, rules, ref = _config()
     rows = pipeline.build_rows(run_dir, review, rules, ref)
-    context = {"run_id": run_id, "error": error, "equity": d7.equity(rows, rules), "top_n": rules["regret_top_n"]}
+    equity = [(GROUP_LABELS.get(k, k), groups) for k, groups in d7.equity(rows, rules).items()]
+    context = {"run_id": run_id, "error": error, "equity": equity, "top_n": rules["regret_top_n"]}
     if handsort_path.is_file():
         handsort = d7.parse_handsort(handsort_path.read_text(encoding="utf-8"))
         context["agreement"] = d7.agreement(rows, handsort, rules)
+        option_labels = _option_labels(review, rules)
+        for record in context["agreement"]["records"]:
+            record["tags"] = [option_labels.get(record[f], record[f]) for f in pipeline.CONFIRMABLE]
         context["regret"] = d7.regret(rows, handsort, rules["regret_top_n"])
+        context["labels"] = [LABELS[f][0] for f in pipeline.CONFIRMABLE]
     return render(request, "evaluate.html", context, status=400 if error else 200)

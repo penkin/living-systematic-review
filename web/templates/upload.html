@@ -1,10 +1,20 @@
 {% extends "base.html" %}
 {% block content %}
-{% if error %}<p class="error">{{ error }}</p>{% endif %}
-<form method="post" enctype="multipart/form-data">
-  {% csrf_token %}
-  <p><label>Records CSV <input type="file" name="cards" accept=".csv,text/csv" required></label></p>
-  <p class="muted">Needs the columns <code>record_id</code>, <code>title</code>, <code>abstract</code>.</p>
-  <button type="submit">Upload</button>
-</form>
+<h2>Check new records against your review</h2>
+<p>The tool ranks each record High, Moderate or Low with a short reason. You decide what to do with it.</p>
+<ol class="steps">
+  <li>Upload the CSV export from your screening tool.</li>
+  <li>Read the ranked list. High comes first.</li>
+  <li>Confirm or change the tags. The rank updates at once.</li>
+</ol>
+
+<div class="card">
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <p><label>Records file<br><input type="file" name="cards" accept=".csv,text/csv" required></label></p>
+    <p class="help">A CSV with the columns <code>record_id</code>, <code>title</code> and <code>abstract</code>. Covidence, Rayyan and EPPI-Reviewer exports work as they are.</p>
+    <button type="submit">Rank the records</button>
+  </form>
+</div>
 {% endblock %}

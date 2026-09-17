@@ -29,7 +29,7 @@ class UploadTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "SYN-001")
         # This title is not in the committed cache, so the record stays listed but unscored.
-        self.assertContains(response, "not scored")
+        self.assertContains(response, "Not ranked")
         self.assertEqual(len(list(self.runs.iterdir())), 1)
 
     def test_missing_required_column_is_rejected(self):
@@ -47,8 +47,7 @@ class UploadTests(SimpleTestCase):
         response = self.post(
             GOOD + b"SYN-012,RETRACTED: Stroke admissions in Lagos,RETRACTED ARTICLE. Withdrawn.\n"
         )
-        self.assertContains(response, "1 scoring")
-        self.assertContains(response, "1 separate lane")
+        self.assertContains(response, "1 ranked, 1 set aside")
         self.assertContains(response, "Retracted by the publisher")
 
     def test_unknown_run_is_404(self):
@@ -78,15 +77,14 @@ class RunTests(SimpleTestCase):
 
     def test_dashboard_ranks_and_keeps_every_record(self):
         response = self.client.get(self.run_url)
-        self.assertContains(response, "29 scoring")
-        self.assertContains(response, "5 separate lane")
+        self.assertContains(response, "29 ranked, 5 set aside")
         for i in range(1, 35):
             self.assertContains(response, f'id="SYN-{i:03d}"')
         body = response.content.decode()
         self.assertLess(body.index('id="SYN-022"'), body.index('id="SYN-002"'), "HIGH sorts before MODERATE")
-        self.assertContains(response, "override: harm")
-        self.assertContains(response, "scope question")
-        self.assertContains(response, "model stub")
+        self.assertContains(response, "Override: harm reported")
+        self.assertContains(response, "Ask the team whether this outcome belongs in the review.")
+        self.assertContains(response, "Tagged by stub")
 
     def test_override_rescores_without_a_model_call(self):
         before = cache_files()
@@ -140,17 +138,17 @@ class RunTests(SimpleTestCase):
 
     def test_evaluate_page_and_hand_sort(self):
         page = self.client.get(f"{self.run_url}evaluate/")
-        self.assertContains(page, "Equity test")
-        self.assertContains(page, "lmic_setting")
-        self.assertNotContains(page, "Agreement table")
+        self.assertContains(page, "Fairness check")
+        self.assertContains(page, "Low- or middle-income setting")
+        self.assertNotContains(page, "Record by record")
 
         bad = self.client.post(f"{self.run_url}evaluate/", {"handsort": io.BytesIO(b"record_id,level\nSYN-001,HIGH\n")})
         self.assertEqual(bad.status_code, 400)
 
         handsort = b"record_id,hand_level\nSYN-001,HIGH\nSYN-002,LOW\nSYN-013,HIGH\nSYN-031,HIGH\n"
         response = self.client.post(f"{self.run_url}evaluate/", {"handsort": io.BytesIO(handsort)}, follow=True)
-        self.assertContains(response, "Agreement table")
-        self.assertContains(response, "Regret figure")
+        self.assertContains(response, "Record by record")
+        self.assertContains(response, "outside its top")
         self.assertContains(response, 'class="disagree"')
         # SYN-031 is separate lane, so it has no rank and is a regret miss.
-        self.assertContains(response, "not scored")
+        self.assertContains(response, "Not ranked")
