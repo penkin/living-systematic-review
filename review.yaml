@@ -23,42 +23,51 @@ in_scope_regions: [Africa]
 outcomes:
   - id: O1
     name: All-cause mortality during heat events
+    short: heat mortality
     n_studies: 14
     certainty: Moderate
     evidence_contexts: [ZAF, GHA, EGY]      # ISO3
   - id: O2
     name: Heat-related emergency department attendance
+    short: emergency attendance
     n_studies: 9
     certainty: Moderate
   - id: O3
     name: Cardiovascular mortality
+    short: cardiovascular mortality
     n_studies: 6
     certainty: Low
   - id: O4
     name: Occupational heat strain in outdoor workers
+    short: occupational heat strain
     n_studies: 5
     certainty: Low
   - id: O5
     name: Adverse birth outcomes (preterm, low birthweight, stillbirth)
+    short: birth outcomes
     n_studies: 3
     certainty: Very low
     absent_contexts: [Western Africa]        # UN M49 label, see reference/iso3166_regions.csv
   - id: O6
     name: Renal and kidney injury outcomes
+    short: renal outcomes
     n_studies: 2
     certainty: Very low
   - id: O7
     name: Effectiveness of cooling interventions (shade, cool roofs, cooling centres)
+    short: cooling interventions
     n_studies: 2
     certainty: Very low
     absent_contexts: [Africa]                # UN M49 region label
   - id: O8
     name: Effectiveness of heat early warning systems
+    short: heat early warning
     n_studies: 1
     certainty: Very low
     absent_contexts: [Africa]                # UN M49 region label
   - id: O9
     name: Mental health service utilisation during heat events
+    short: mental health use
     n_studies: 1
     certainty: Very low
 

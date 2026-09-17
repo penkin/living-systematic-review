@@ -56,6 +56,7 @@ def resolve(iso3_codes, ref, rules):
         lmic_setting = "Mixed"
     return {
         "countries": codes,
+        "country_names": [ref["countries"][c]["name"] for c in codes],
         "regions": sorted(regions),
         "income_levels": income,
         "lmic_setting": lmic_setting,

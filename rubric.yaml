@@ -65,8 +65,42 @@ secondary_report_markers: [secondary outcomes, reported elsewhere]
 # Scoring criteria. Stage 3. A separate-lane record is never scored at all.
 #
 # Each criterion maps a source field to a score. A value that is not listed takes
-# the default. The closed list of study_design values lives in review.yaml.
+# the default. Criterion A instead sums `parts`, one point each. Closed lists for
+# the source fields live in review.yaml.
 criteria:
+  A:
+    name: Relevance to the review question
+    max: 3
+    # Decided on 2026-09-17: one point each for testing an intervention, answering
+    # the review question, and an LMIC setting. Mixed and Unclear settings earn no
+    # point here; criterion B still gives Mixed a point.
+    parts:
+      - source_field: intervention_tested
+        scores: {"Yes": 1}
+      - source_field: answers_question
+        scores: {"Yes": 1}
+      - source_field: lmic_setting
+        scores: {"Yes": 1}
+    default: 0
+
+  B:
+    name: LMIC setting
+    max: 2
+    source_field: lmic_setting
+    default: 0
+    scores:
+      Mixed: 1
+      "Yes": 2
+
+  C:
+    name: Equity
+    max: 2
+    source_field: equity_level
+    default: 0
+    scores:
+      Group included: 1
+      Results by factor: 2
+
   D:
     name: Study design
     max: 2
@@ -78,3 +112,102 @@ criteria:
     scores:
       SR: 2
       RCT: 2
+
+  E:
+    name: Policy relevance
+    max: 2
+    source_field: policy_relevance
+    default: 0
+    scores:
+      Some: 1
+      Direct: 2
+
+  F:
+    name: Recency
+    max: 1
+    source_field: recency_score
+    default: 0
+    scores:
+      1: 1
+    # SPEC.md section 6: a duplicate scores 0 whatever its year.
+    zero_when_true: is_duplicate
+
+  G:
+    name: Lands where the review is uncertain
+    max: 3
+    source_field: outcome_certainty
+    # Insufficient evidence, or a certainty label the table has not used before,
+    # scores like Very low.
+    default: 3
+    scores:
+      High: 0
+      Moderate: 1
+      Low: 2
+      Very low: 3
+
+# Level order, lowest first. "Raise one level" walks this list.
+levels: [LOW, MODERATE, HIGH]
+
+thresholds:
+  high: {min_total: 11, min_A: 2}
+  moderate: {min_total: 6}
+  # SPEC.md section 4: A = 1 caps at MODERATE, A = 0 is LOW whatever else scores.
+  # An A = 0 record also skips the overrides, because the tree sends it straight out.
+  a_caps: {0: LOW, 1: MODERATE}
+
+# Applied in this order after the threshold. `HIGH` sets the level; `raise` moves it
+# up one step. The scorer sets absent_context_hit from the record geography and the
+# outcome's absent_contexts in review.yaml.
+overrides:
+  - name: harm
+    label: harm reported
+    source_field: harm_reported
+    equals: "Yes"
+    action: HIGH
+  - name: new_class
+    label: new intervention class
+    source_field: new_intervention_class
+    equals: "Yes"
+    action: HIGH
+  - name: absent_context
+    label: absent context
+    source_field: absent_context_hit
+    equals: "Yes"
+    action: raise
+
+# The open questions in SPEC.md section 4. Switches, not code.
+switches:
+  promote_large_studies_on_moderate: false
+  large_study_n: 1000
+  # MODERATE, LOW or none. Applies when the record has a known region and none of
+  # them is in review.yaml in_scope_regions. A record with no known region is not
+  # capped, because unknown is not the same as elsewhere.
+  out_of_region_cap: MODERATE
+  # surface or suppress. Suppress still shows the record; it only forces LOW.
+  out_of_scope_handling: surface
+
+suggested_action:
+  HIGH: Review now
+  MODERATE: Watch
+  LOW: Deprioritise
+
+# Reason text. Fifteen words or fewer, checked in code. If the long template runs
+# over, the short one is tried; only if both run over is the override clause dropped.
+# Fields: design, setting, outcome, n_studies, certainty, override.
+reason_template: "{design} in {setting} on {outcome}; review has {n_studies} studies, {certainty} certainty. {override}"
+reason_template_short: "{outcome} in {setting}; {n_studies} studies, {certainty} certainty. {override}"
+reason_template_scope: "Outcome outside the review; scope question for the team. {override}"
+reason_override_prefix: "Override:"
+
+design_labels:
+  SR: Systematic review
+  RCT: Randomised trial
+  non-randomised: Non-randomised study
+  cohort: Cohort study
+  cross-sectional: Cross-sectional study
+  qualitative: Qualitative study
+  modelling: Modelling study
+  other: Study
+
+# D7 regret figure: hand-sorted HIGH records outside the tool's top N by score.
+regret_top_n: 10
