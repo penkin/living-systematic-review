@@ -3,7 +3,7 @@
  "relevance": "Direct",
  "outcome_touched": "O5",
  "intervention_tested": "No",
- "answers_question": "No",
+ "answers_question": "Yes",
  "equity_relevance": {
   "level": "None",
   "factors": []
@@ -19,19 +19,19 @@
  ],
  "sample_size": 4000,
  "evidence": {
-  "study_design": "a planned prospective cohort of 4,000 pregnancies",
-  "relevance": "Heat exposure and adverse birth outcomes",
+  "study_design": "prospective cohort of 4,000 pregnancies",
+  "relevance": "linking personal heat exposure monitoring to birth outcomes",
   "outcome_touched": "Primary outcomes are preterm birth and low birthweight",
   "intervention_tested": "",
-  "answers_question": "No results are reported here",
+  "answers_question": "heat exposure and adverse birth outcomes in Kampala",
   "equity_relevance": "",
   "harm_reported": "",
   "new_intervention_class": "",
   "policy_relevance": "",
-  "countries_iso3": "Kampala",
+  "countries_iso3": "Kampala, Uganda",
   "sample_size": "4,000 pregnancies"
  },
- "model_version": "stub",
- "prompt_version": "p1",
+ "model_version": "anthropic/claude-haiku-4.5",
+ "prompt_version": "p2",
  "prompt_date": "2026-09-17"
 }

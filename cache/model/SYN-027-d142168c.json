@@ -13,23 +13,23 @@
   "value": "No",
   "class_name": ""
  },
- "policy_relevance": "Direct",
+ "policy_relevance": "Some",
  "countries_iso3": [],
  "sample_size": null,
  "evidence": {
-  "study_design": "In this commentary we argue",
-  "relevance": "Heat and health in African cities",
-  "outcome_touched": "under-invested in evaluating responses",
+  "study_design": "commentary",
+  "relevance": "African cities face escalating heat risk",
+  "outcome_touched": "",
   "intervention_tested": "",
   "answers_question": "",
   "equity_relevance": "",
   "harm_reported": "",
   "new_intervention_class": "",
-  "policy_relevance": "We call for a coordinated programme of intervention trials",
-  "countries_iso3": "",
+  "policy_relevance": "calls for a coordinated programme of intervention trials",
+  "countries_iso3": "African cities",
   "sample_size": ""
  },
- "model_version": "stub",
- "prompt_version": "p1",
+ "model_version": "anthropic/claude-haiku-4.5",
+ "prompt_version": "p2",
  "prompt_date": "2026-09-17"
 }

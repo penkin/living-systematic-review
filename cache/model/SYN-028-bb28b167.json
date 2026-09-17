@@ -5,8 +5,11 @@
  "intervention_tested": "Yes",
  "answers_question": "Yes",
  "equity_relevance": {
-  "level": "None",
-  "factors": []
+  "level": "Group included",
+  "factors": [
+   "Place of residence",
+   "Socioeconomic status"
+  ]
  },
  "harm_reported": "No",
  "new_intervention_class": {
@@ -19,19 +22,19 @@
  ],
  "sample_size": null,
  "evidence": {
-  "study_design": "a cluster-randomised trial of reflective roof coatings",
-  "relevance": "Cool roof coatings in Cape Town informal settlements",
-  "outcome_touched": "Self-reported sleep quality, clinic attendance and installation cost per dwelling",
-  "intervention_tested": "reflective roof coatings",
-  "answers_question": "This paper reports secondary outcomes",
-  "equity_relevance": "",
+  "study_design": "cluster-randomised trial",
+  "relevance": "informal settlements",
+  "outcome_touched": "reflective roof coatings",
+  "intervention_tested": "cluster-randomised trial of reflective roof coatings",
+  "answers_question": "health outcomes including sleep quality and clinic attendance",
+  "equity_relevance": "Cape Town informal settlements",
   "harm_reported": "",
   "new_intervention_class": "",
-  "policy_relevance": "installation cost per dwelling",
-  "countries_iso3": "Cape Town",
+  "policy_relevance": "cost analysis",
+  "countries_iso3": "Cape Town, South Africa",
   "sample_size": ""
  },
- "model_version": "stub",
- "prompt_version": "p1",
+ "model_version": "anthropic/claude-haiku-4.5",
+ "prompt_version": "p2",
  "prompt_date": "2026-09-17"
 }

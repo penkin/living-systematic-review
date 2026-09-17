@@ -57,8 +57,8 @@ The tool suggests.
   with the download date.
 - `cache/model/<record_id>-<hash8>.json` — committed model responses for
   `cards.csv`. The hash is the first 8 hex chars of sha256(title + abstract), so an
-  edited abstract is a miss. The 34 files are hand-written stubs with
-  `model_version: stub`; a real call writes the same shape.
+  edited abstract is a miss. The 34 files are responses from the model named in
+  `model_version`. A miss with `OPENROUTER_API_KEY` set writes a new one here.
 - `runs/<uuid>/` — one directory per upload, git-ignored. It holds `cards.csv`,
   `model/` (cache hits copied in, plus any new responses), `tags.json` (every tag
   with its status `rule`, `suggested`, `confirmed` or `overridden`), `signals.csv`,
@@ -148,5 +148,5 @@ Reviewers, not developers, read the pages. Keep them simple.
   score. `SPEC.md:177` still shows the old mapping.
 - `review.yaml` carries `absent_contexts` for O5, O7 and O8 only. The absent-context
   override never fires for the other six outcomes until the team fills the list.
-- Every file in `cache/model/` is a hand-written stub. Set `OPENROUTER_API_KEY`,
-  delete the stubs and upload `cards.csv` to replace them with real responses.
+- `cache/model/` holds real responses from `anthropic/claude-haiku-4.5`. Delete a file
+  and the next upload calls the model for that record and writes the file back.

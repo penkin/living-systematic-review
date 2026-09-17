@@ -1,5 +1,5 @@
 {
- "study_design": "other",
+ "study_design": "cohort",
  "relevance": "Not relevant",
  "outcome_touched": "NONE",
  "intervention_tested": "No",
@@ -19,19 +19,19 @@
  ],
  "sample_size": null,
  "evidence": {
-  "study_design": "paediatric respiratory admissions at two referral hospitals over four years",
-  "relevance": "Fine particulate matter and paediatric respiratory admissions",
-  "outcome_touched": "A consistent positive association with PM2.5 was observed",
+  "study_design": "examined the association between daily PM2.5 concentrations and paediatric respiratory admissions at two referral hospitals over four years",
+  "relevance": "Fine particulate matter exposure, not ambient heat exposure",
+  "outcome_touched": "",
   "intervention_tested": "",
-  "answers_question": "",
+  "answers_question": "focuses on air pollution (PM2.5) rather than heat or heat events",
   "equity_relevance": "",
   "harm_reported": "",
   "new_intervention_class": "",
   "policy_relevance": "",
-  "countries_iso3": "Nairobi",
+  "countries_iso3": "Nairobi, Kenya",
   "sample_size": ""
  },
- "model_version": "stub",
- "prompt_version": "p1",
+ "model_version": "anthropic/claude-haiku-4.5",
+ "prompt_version": "p2",
  "prompt_date": "2026-09-17"
 }
