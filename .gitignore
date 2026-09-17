@@ -1,2 +1,6 @@
 .DS_Store
 docs/
+.venv/
+runs/
+__pycache__/
+*.pyc

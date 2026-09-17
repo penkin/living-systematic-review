@@ -2,12 +2,34 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Repository state
+## Commands
 
-This is a specification and a dataset, not an application. Nothing is implemented
-yet. There is no build, no test, no lint, no package manager, and no git repository.
+```bash
+.venv/bin/python manage.py runserver    # serve the tool at http://127.0.0.1:8000/
+.venv/bin/python manage.py test web     # run the tests
+.venv/bin/python manage.py test web.tests.UploadTests.test_header_only_is_rejected
+uv pip install --python .venv/bin/python -r requirements.txt
+```
 
-When you write the first code, add the run and test commands to this section.
+Recreate the environment with `uv venv --python 3.13 .venv`. Django 6 needs Python
+3.12 or newer; the system `python3` is 3.9 and will not do.
+
+## Layout
+
+- `config/` — Django settings, URLs, WSGI. No database: `DATABASES = {}`, and
+  `admin`, `auth` and `sessions` stay out of `INSTALLED_APPS` because all three want
+  one.
+- `web/` — views, templates, tests. The web layer only.
+- `signal_tool/` — the pipeline. **It must never import Django.** Stage 3 re-runs
+  every time a reviewer confirms or overrides a tag, so it must be callable without
+  an HTTP request.
+- `runs/<uuid>/` — one directory per upload, git-ignored. It holds the uploaded CSV,
+  the cached model responses, the tags with their confirmed flags, and `signals.csv`.
+  The uuid is in the URL. Delete the directory and the run is gone.
+
+Stages 1 and 2 run once per upload. Stage 3 re-runs per record on every confirmation,
+so keep it pure: tags plus `review.yaml` plus the rubric in, criteria and level out.
+Never repeat the stage 2 model call because a human changed a tag.
 
 ## What the tool is
 
