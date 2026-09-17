@@ -165,7 +165,7 @@ Everything below is configuration the review team edits without a developer pres
 | A Relevance | Not relevant | Partial | Mostly | Direct | relevance |
 | B LMIC setting | No / Unclear | Mixed | Yes | — | lmic_setting |
 | C Equity | None | Group included | Results by factor | — | equity_relevance.level |
-| D Design | commentary, protocol, case report | observational, qualitative, modelling | RCT, SR | — | study_design |
+| D Design | any other design | — | RCT, SR | — | study_design |
 | E Policy | None | Some | Direct | — | policy_relevance |
 | F Recency | outside window or duplicate | in window | — | — | recency_score |
 | G Certainty | High | Moderate | Low | Very low / insufficient | outcome_certainty |

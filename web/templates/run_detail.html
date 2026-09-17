@@ -1,12 +1,25 @@
 {% extends "base.html" %}
 {% block content %}
-<p class="muted">Run {{ run_id }} · {{ records|length }} record{{ records|length|pluralize }}</p>
-<p class="error">The pipeline is not built yet. Stages 1 to 3 produce nothing so far.</p>
+<p class="muted">Run {{ run_id }} · {{ signal|length }} scoring · {{ separate|length }} separate lane</p>
+<p class="error">Stages 2 and 3 are not built yet, so no record has a signal level.</p>
+
+<h2>Signal lane</h2>
 <table>
-  <thead><tr><th>Record</th><th>Title</th></tr></thead>
+  <thead><tr><th>Record</th><th>Type</th><th>Title</th></tr></thead>
   <tbody>
-  {% for record in records %}
-    <tr><td>{{ record.record_id }}</td><td>{{ record.title }}</td></tr>
+  {% for record in signal %}
+    <tr><td>{{ record.record_id }}</td><td class="muted">{{ record.record_type }}</td><td>{{ record.title }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h2>Separate lane</h2>
+<p class="muted">Routed out of scoring by a rule in <code>rubric.yaml</code>. This is not a decision to include or exclude the study.</p>
+<table>
+  <thead><tr><th>Record</th><th>Type</th><th>Title</th><th>Why</th></tr></thead>
+  <tbody>
+  {% for record in separate %}
+    <tr><td>{{ record.record_id }}</td><td class="muted">{{ record.record_type }}</td><td>{{ record.title }}</td><td class="muted">{{ record.lane_reason }}</td></tr>
   {% endfor %}
   </tbody>
 </table>

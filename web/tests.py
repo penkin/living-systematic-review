@@ -35,6 +35,14 @@ class UploadTests(SimpleTestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(list(self.runs.iterdir()), [])
 
+    def test_retracted_record_is_shown_in_the_separate_lane(self):
+        response = self.post(
+            GOOD + b"SYN-012,RETRACTED: Stroke admissions in Lagos,RETRACTED ARTICLE. Withdrawn.\n"
+        )
+        self.assertContains(response, "1 scoring")
+        self.assertContains(response, "1 separate lane")
+        self.assertContains(response, "Retracted by the publisher")
+
     def test_unknown_run_is_404(self):
         with override_settings(RUNS_DIR=self.runs):
             response = self.client.get("/run/0198d4f3-0000-4000-8000-000000000000/")

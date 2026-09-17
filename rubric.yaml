@@ -1,0 +1,66 @@
+# Stage 1 rules. Deterministic, no model call. The review team edits this file
+# without a developer present.
+rubric_version: v0
+
+# A record takes the first type whose markers match. record_type_raw is checked
+# first because an export that supplies it is authoritative; title and abstract are
+# the fallback, because SPEC.md section 9 only guarantees record_id, title and
+# abstract. Markers are matched case-insensitively as substrings.
+#
+# Order matters. "Journal article (retracted)" matches both retracted and
+# journal_article, and retracted must win.
+record_types:
+  retracted:
+    lane: separate
+    lane_reason: Retracted by the publisher
+    markers: [retracted]
+
+  protocol:
+    lane: separate
+    lane_reason: Protocol, no results reported
+    markers: [study protocol, "protocol for a"]
+
+  conference_abstract:
+    lane: separate
+    lane_reason: Conference abstract, methods and estimates not available
+    markers: [conference abstract]
+
+  commentary:
+    lane: separate
+    lane_reason: Commentary, not a study
+    markers: [commentary, editorial, viewpoint]
+
+  # A preprint only leaves the signal lane when a published version of the same
+  # study is in the batch. SPEC.md section 4. Duplicate detection is not built yet,
+  # so every preprint still scores.
+  preprint:
+    lane: signal
+    markers: [preprint]
+
+  systematic_review:
+    lane: signal
+    markers: [systematic review, meta-analysis]
+
+  journal_article:
+    lane: signal
+    markers: [journal article]
+
+# Applied when no marker matches anywhere.
+default_record_type: journal_article
+
+# Scoring criteria. Stage 3. A separate-lane record is never scored at all.
+#
+# Each criterion maps a source field to a score. A value that is not listed takes
+# the default. The closed list of study_design values lives in review.yaml.
+criteria:
+  D:
+    name: Study design
+    max: 2
+    source_field: study_design
+    # A systematic review or a randomised trial scores 2. Every other design scores
+    # 0. There is no middle score: observational, qualitative and modelling designs
+    # no longer earn a point.
+    default: 0
+    scores:
+      SR: 2
+      RCT: 2
