@@ -1,0 +1,12 @@
+{
+  "name": "update-signal",
+  "private": true,
+  "scripts": {
+    "css": "tailwindcss -i web/static/src/app.css -o web/static/app.css --minify"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4",
+    "daisyui": "^5",
+    "tailwindcss": "^4"
+  }
+}

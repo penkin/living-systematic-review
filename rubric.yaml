@@ -62,38 +62,62 @@ duplicates:
 # Flagged, never routed out: the reviewer decides. SYN-028 is the seeded case.
 secondary_report_markers: [secondary outcomes, reported elsewhere]
 
+design_labels: &design_labels
+  SR: Systematic review
+  RCT: Randomised trial
+  non-randomised: Non-randomised study
+  cohort: Cohort study
+  cross-sectional: Cross-sectional study
+  qualitative: Qualitative study
+  modelling: Modelling study
+  other: Study
+
+# Shown on the record page when a source field has no value.
+untagged_label: Not tagged
+
 # Scoring criteria. Stage 3. A separate-lane record is never scored at all.
 #
 # Each criterion maps a source field to a score. A value that is not listed takes
 # the default. Criterion A instead sums `parts`, one point each. Closed lists for
 # the source fields live in review.yaml.
+#
+# `help` is the one-line explanation a reviewer reads beside the criterion.
+# `value_labels` turns a raw value into plain words; a value without a label is
+# shown as it is.
 criteria:
   A:
     name: Relevance to the review question
+    help: One point each for testing an intervention, answering the review question, and a low- or middle-income setting.
     max: 3
     # Decided on 2026-09-17: one point each for testing an intervention, answering
     # the review question, and an LMIC setting. Mixed and Unclear settings earn no
     # point here; criterion B still gives Mixed a point.
     parts:
       - source_field: intervention_tested
+        label: Tests an intervention
         scores: {"Yes": 1}
       - source_field: answers_question
+        label: Answers the review question
         scores: {"Yes": 1}
       - source_field: lmic_setting
+        label: Low- or middle-income setting
         scores: {"Yes": 1}
     default: 0
 
   B:
     name: LMIC setting
+    help: Two points for a low- or middle-income setting, one for a mixed setting.
     max: 2
     source_field: lmic_setting
     default: 0
     scores:
       Mixed: 1
       "Yes": 2
+    value_labels: {"Yes": Low- or middle-income, Mixed: Mixed settings, "No": High-income, Unclear: Setting unclear}
 
   C:
     name: Equity
+    help: Two points when results are broken down by an equity factor, one when a disadvantaged group is included.
     max: 2
     source_field: equity_level
     default: 0
@@ -103,6 +127,7 @@ criteria:
 
   D:
     name: Study design
+    help: Two points for a systematic review or a randomised trial. Every other design scores nothing.
     max: 2
     source_field: study_design
     # A systematic review or a randomised trial scores 2. Every other design scores
@@ -112,9 +137,11 @@ criteria:
     scores:
       SR: 2
       RCT: 2
+    value_labels: *design_labels
 
   E:
     name: Policy relevance
+    help: Two points when the record speaks directly to policy, one when it touches on it.
     max: 2
     source_field: policy_relevance
     default: 0
@@ -124,16 +151,20 @@ criteria:
 
   F:
     name: Recency
+    help: One point for a record published in the update window. A duplicate in the batch earns none.
     max: 1
     source_field: recency_score
     default: 0
     scores:
       1: 1
+    value_labels: {1: Published in the update window, 0: Published before the update window}
     # SPEC.md section 6: a duplicate scores 0 whatever its year.
     zero_when_true: is_duplicate
+    zero_when_true_label: Duplicate of another record in this batch
 
   G:
     name: Lands where the review is uncertain
+    help: More points the less certain the review already is about this outcome. Very low certainty earns three.
     max: 3
     source_field: outcome_certainty
     # Insufficient evidence, or a certainty label the table has not used before,
@@ -144,6 +175,22 @@ criteria:
       Moderate: 1
       Low: 2
       Very low: 3
+    value_template: "{outcome}: {certainty} certainty from {n_studies} {studies}"
+    not_covered_label: Outcome not covered by the review, so no points
+    not_pursued_label: Outcome the team has decided not to pursue, so no points
+
+# Sentences for "How the level was set" on the record page. Fields: total, max,
+# high_min, high_min_a, moderate_min, level, a, cap, n, label, effect.
+level_steps:
+  threshold: "Total {total} of {max}. High needs {high_min} or more with relevance at least {high_min_a}; Moderate needs {moderate_min} or more. That gives {level}."
+  a_cap: "Relevance scored {a}, which caps the level at {cap}."
+  scope_suppressed: "The outcome is outside the review and the team's setting sends such records to Low."
+  out_of_region: "No country in the review's regions, so the level is capped at {cap}."
+  large_study: "A study of {n} or more on a moderate-certainty outcome is promoted to High."
+  override: "Override, {label}: {effect}."
+  override_effects: {HIGH: level set to High, raise: level raised one step}
+  overrides_skipped: "Relevance scored 0, so the overrides do not apply."
+  scope_question: "Ask the team whether this outcome belongs in the review."
 
 # Level order, lowest first. "Raise one level" walks this list.
 levels: [LOW, MODERATE, HIGH]
@@ -199,16 +246,6 @@ reason_template: "{design} in {setting} on {outcome}; review has {n_studies} {st
 reason_template_short: "{outcome} in {setting}; {n_studies} {studies}, {certainty} certainty. {override}"
 reason_template_scope: "Outcome outside the review; scope question for the team. {override}"
 reason_override_prefix: "Override:"
-
-design_labels:
-  SR: Systematic review
-  RCT: Randomised trial
-  non-randomised: Non-randomised study
-  cohort: Cohort study
-  cross-sectional: Cross-sectional study
-  qualitative: Qualitative study
-  modelling: Modelling study
-  other: Study
 
 # D7 regret figure: hand-sorted HIGH records outside the tool's top N by score.
 regret_top_n: 10

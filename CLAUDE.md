@@ -10,6 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 .venv/bin/python manage.py test web.tests.UploadTests.test_header_only_is_rejected
 .venv/bin/python -m signal_tool.reference   # refresh reference/worldbank_income.json and METADATA.json
 uv pip install --python .venv/bin/python -r requirements.txt
+npm install && npm run css                  # rebuild web/static/app.css after a template change
 ```
 
 Set `ANTHROPIC_API_KEY` to let stage 2 call the model on a cache miss. Without it the
@@ -31,8 +32,9 @@ The tool suggests.
 - `config/` — Django settings, URLs, WSGI. No database: `DATABASES = {}`, and
   `admin`, `auth` and `sessions` stay out of `INSTALLED_APPS` because all three want
   one.
-- `web/` — `views.py`, four templates, `tests.py`. No JavaScript. Pages: `/` upload,
-  `run/<uuid>/` the ranked list with the confirm/override controls,
+- `web/` — `views.py`, the templates, `static/app.css`, `tests.py`. No JavaScript.
+  Pages: `/` upload, `run/<uuid>/` the ranked list, `run/<uuid>/record/<id>/` one
+  record with its score breakdown and the confirm/override controls,
   `run/<uuid>/signals.csv` the download, `run/<uuid>/evaluate/` the D7 checks.
 - `signal_tool/` — the pipeline. **It must never import Django.** Stage 3 re-runs
   every time a reviewer confirms or overrides a tag, so it must be callable without
@@ -102,13 +104,20 @@ you change the rubric. Read section 5 to find which stage produces a field.
 
 Reviewers, not developers, read the pages. Keep them simple.
 
-- One style sheet in `web/templates/base.html` holds every colour token and
-  component: level badges, status pills, one button, one card. Build every page from
-  those parts. Do not add a second style.
+- The style is Tailwind CSS v4 with DaisyUI v5, built once into `web/static/app.css`
+  with `npm run css` (`npm install` first; `node_modules/` is git-ignored). Tailwind
+  reads the class names from `web/templates/`, so rebuild the CSS after any template
+  change and commit the built file. No CDN, no custom CSS, no JavaScript.
+- `web/templates/_badge.html` is the one place the level colours live. Include it
+  with `level=`; an empty level renders "Not ranked".
 - Plain words on screen, raw ids in the CSV. Field labels live in `LABELS` in
-  `web/views.py`. Option labels come from `review.yaml` and `rubric.yaml`.
-- Each record shows its level, its reason and its next step. The five tag controls
-  sit behind one "Check the tags" control per record.
+  `web/views.py`. Option labels come from `review.yaml` and `rubric.yaml`. The
+  per-criterion `help`, `value_labels` and the `level_steps` sentences live in
+  `rubric.yaml`; `score_record` returns them as `criteria_detail` and `level_steps`.
+- The list at `run/<uuid>/` shows level, score, title, reason and next step. The
+  record page at `run/<uuid>/record/<record_id>/` shows how the score was built,
+  how the level was set, and the five tags with an "Agree" button and a "Change to"
+  select. A tag change redirects back to the record page.
 
 ## Data contracts
 

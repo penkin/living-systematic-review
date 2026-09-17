@@ -4,3 +4,4 @@ docs/
 runs/
 __pycache__/
 *.pyc
+node_modules/
