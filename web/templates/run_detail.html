@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="muted">Run {{ run_id }} · {{ records|length }} record{{ records|length|pluralize }}</p>
+<p class="error">The pipeline is not built yet. Stages 1 to 3 produce nothing so far.</p>
+<table>
+  <thead><tr><th>Record</th><th>Title</th></tr></thead>
+  <tbody>
+  {% for record in records %}
+    <tr><td>{{ record.record_id }}</td><td>{{ record.title }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
