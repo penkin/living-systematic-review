@@ -75,6 +75,8 @@ class PipelineTests(unittest.TestCase):
         for row in self.rows:
             with self.subTest(record=row["record_id"]):
                 self.assertLessEqual(len(str(row["signal_reason"]).split()), REASON_WORD_LIMIT)
+                if row["signal_reason"]:
+                    self.assertTrue(row["signal_reason"][0].isupper(), row["signal_reason"])
 
     def test_version_fields_are_filled(self):
         row = self.by_id["SYN-001"]
