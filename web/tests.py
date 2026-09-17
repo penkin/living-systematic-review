@@ -136,8 +136,9 @@ class RunTests(SimpleTestCase):
         response = self.client.post(f"{self.run_url}record/SYN-003/tag/", {"field": "harm_reported", "value": "No"})
         page = self.client.get(response["Location"])
         self.assertContains(page, "Agreed")
-        # Four tags still wait for a look; the agreed one only offers Change.
+        # Four tags still wait for a look; the agreed one has no controls left.
         self.assertEqual(page.content.decode().count(">Agree</button>"), 4)
+        self.assertEqual(page.content.decode().count(">Change</button>"), 4)
         self.assertEqual(self.signals()["SYN-003"]["signal_level"], "MODERATE")
 
     def test_record_type_override_moves_a_record_into_scoring(self):

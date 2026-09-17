@@ -97,15 +97,14 @@
           </div>
           {% if check.evidence %}<q class="mt-1 block text-sm italic text-base-content/70">{{ check.evidence }}</q>{% endif %}
         </div>
-        <div class="flex items-center gap-2 md:justify-end">
-          {% if check.status_word == "Suggested" %}
+        {% if check.status_word == "Suggested" %}
+        <div class="flex items-center gap-2">
           <form method="post" action="{% url 'set_tag' run_id row.record_id %}">
             {% csrf_token %}
             <input type="hidden" name="field" value="{{ check.field }}">
             <input type="hidden" name="value" value="{{ check.value }}">
             <button type="submit" class="btn btn-sm btn-primary w-20">Agree</button>
           </form>
-          {% endif %}
           <form method="post" action="{% url 'set_tag' run_id row.record_id %}" class="join">
             {% csrf_token %}
             <input type="hidden" name="field" value="{{ check.field }}">
@@ -115,6 +114,7 @@
             <button type="submit" class="btn btn-sm btn-outline join-item">Change</button>
           </form>
         </div>
+        {% endif %}
       </div>
     {% endfor %}
     </div>
