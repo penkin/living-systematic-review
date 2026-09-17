@@ -193,9 +193,10 @@ suggested_action:
 
 # Reason text. Fifteen words or fewer, checked in code. If the long template runs
 # over, the short one is tried; only if both run over is the override clause dropped.
-# Fields: design, setting, outcome, n_studies, certainty, override.
-reason_template: "{design} in {setting} on {outcome}; review has {n_studies} studies, {certainty} certainty. {override}"
-reason_template_short: "{outcome} in {setting}; {n_studies} studies, {certainty} certainty. {override}"
+# Fields: design, setting, outcome, n_studies, studies (the word, singular or plural),
+# certainty, override.
+reason_template: "{design} in {setting} on {outcome}; review has {n_studies} {studies}, {certainty} certainty. {override}"
+reason_template_short: "{outcome} in {setting}; {n_studies} {studies}, {certainty} certainty. {override}"
 reason_template_scope: "Outcome outside the review; scope question for the team. {override}"
 reason_override_prefix: "Override:"
 

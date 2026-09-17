@@ -133,6 +133,7 @@ def score_record(tags, review, rules):
             "setting": _setting(tags),
             "outcome": outcome.get("short", outcome["name"]) if outcome else "",
             "n_studies": n_studies,
+            "studies": "study" if n_studies == 1 else "studies",
             "certainty": certainty.lower(),
             "override": ", ".join(r["label"] for r in triggered),
             "scope_question": scope_question,
