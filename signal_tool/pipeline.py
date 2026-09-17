@@ -99,11 +99,16 @@ def run(run_dir, review, rules, ref, shared_cache, client=None):
     return rescore(run_dir, review, rules, ref)
 
 
+def build_rows(run_dir, review, rules, ref):
+    """Stage 3 for every record, from tags.json. Writes nothing."""
+    tagged = read_tags(run_dir)
+    return [build_row(record, tagged[record["record_id"]], review, rules, ref) for record in read_cards(run_dir)]
+
+
 def rescore(run_dir, review, rules, ref):
     """Stage 3 only, from tags.json. Rewrites signals.csv and returns the rows."""
     run_dir = Path(run_dir)
-    tagged = read_tags(run_dir)
-    rows = [build_row(record, tagged[record["record_id"]], review, rules, ref) for record in read_cards(run_dir)]
+    rows = build_rows(run_dir, review, rules, ref)
     with (run_dir / "signals.csv").open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=COLUMNS, extrasaction="ignore")
         writer.writeheader()
