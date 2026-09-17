@@ -1,0 +1,92 @@
+# Review configuration. Everything the tagger and scorer need to know about the
+# review lives here, so the table can edit it without touching code.
+review_id: heat-africa-urban-lsr
+rubric_version: v0
+sof_date: 2026-07-31
+
+# D1 — replace with the agreed PICO sentence on Thursday morning.
+review_question: >
+  In African urban populations (P), does exposure to ambient heat or heat events (E/I),
+  compared with lower temperatures or no heat exposure (C), affect health outcomes
+  including mortality, morbidity, occupational strain and birth outcomes (O), and how
+  effective are cooling and early-warning interventions?
+
+update_window: [2025, 2026]
+
+# Looked up, never judged. Source: H3 Summary of Findings.
+# evidence_contexts / absent_contexts use ISO3 codes or UN M49 region labels so the
+# "absent context" override can be matched mechanically against each record's geography.
+outcomes:
+  - id: O1
+    name: All-cause mortality during heat events
+    n_studies: 14
+    certainty: Moderate
+    evidence_contexts: [ZAF, GHA, EGY]      # ISO3
+  - id: O2
+    name: Heat-related emergency department attendance
+    n_studies: 9
+    certainty: Moderate
+  - id: O3
+    name: Cardiovascular mortality
+    n_studies: 6
+    certainty: Low
+  - id: O4
+    name: Occupational heat strain in outdoor workers
+    n_studies: 5
+    certainty: Low
+  - id: O5
+    name: Adverse birth outcomes (preterm, low birthweight, stillbirth)
+    n_studies: 3
+    certainty: Very low
+    absent_contexts: [Western Africa]        # UN M49 label, see reference/iso3166_regions.csv
+  - id: O6
+    name: Renal and kidney injury outcomes
+    n_studies: 2
+    certainty: Very low
+  - id: O7
+    name: Effectiveness of cooling interventions (shade, cool roofs, cooling centres)
+    n_studies: 2
+    certainty: Very low
+    absent_contexts: [Africa]                # UN M49 region label
+  - id: O8
+    name: Effectiveness of heat early warning systems
+    n_studies: 1
+    certainty: Very low
+    absent_contexts: [Africa]                # UN M49 region label
+  - id: O9
+    name: Mental health service utilisation during heat events
+    n_studies: 1
+    certainty: Very low
+
+# Flagged by the review team as possible extensions; not in scope today.
+out_of_scope_outcomes:
+  - Childhood diarrhoeal disease
+  - Interpersonal violence
+  - Educational attendance
+
+# Intervention classes already represented in the review. Anything else tested
+# in a record is a candidate for the NEW INTERVENTION CLASS override.
+intervention_classes_represented:
+  - Shade structures
+  - Cool roof coatings
+  - Cooling centres
+  - Heat early warning systems
+
+# Closed lists for the tagger. The model must pick from these.
+allowed_values:
+  study_design: [SR, RCT, non-randomised, cohort, cross-sectional, qualitative, modelling, other]
+  relevance: [Direct, Partial, Not relevant]
+  yes_no: ["Yes", "No"]
+  yes_no_unclear: ["Yes", "No", "Unclear"]
+  progress_plus:
+    - Place of residence
+    - Race/ethnicity/culture/language
+    - Occupation
+    - Gender/sex
+    - Religion
+    - Education
+    - Socioeconomic status
+    - Social capital
+    - Age
+    - Disability
+    - Other
