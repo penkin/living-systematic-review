@@ -13,9 +13,13 @@ uv pip install --python .venv/bin/python -r requirements.txt
 npm install && npm run css                  # rebuild web/static/app.css after a template change
 ```
 
-Set `ANTHROPIC_API_KEY` to let stage 2 call the model on a cache miss. Without it the
+Set `OPENROUTER_API_KEY` to let stage 2 call the model on a cache miss. Without it the
 pipeline runs from the cache alone, and a miss leaves the record listed but unscored.
-`SIGNAL_MODEL` picks the model, default `claude-haiku-4-5`.
+`SIGNAL_MODEL` picks the model, default `stealth/union-alpha`. `OPENROUTER_BASE_URL`
+picks the endpoint, default `https://openrouter.ai/api/v1`; any OpenAI-compatible chat
+endpoint works. Stage 2 calls it with the stdlib `urllib`, so no provider SDK is installed.
+Put the variables in a git-ignored `.env` at the repo root (copy `.env.example`);
+`config/settings.py` loads it, and a variable already in the shell wins over the file.
 
 Recreate the environment with `uv venv --python 3.13 .venv`. Django 6 needs Python
 3.12 or newer; the system `python3` is 3.9 and will not do.
@@ -143,5 +147,5 @@ Reviewers, not developers, read the pages. Keep them simple.
   score. `SPEC.md:177` still shows the old mapping.
 - `review.yaml` carries `absent_contexts` for O5, O7 and O8 only. The absent-context
   override never fires for the other six outcomes until the team fills the list.
-- Every file in `cache/model/` is a hand-written stub. Set `ANTHROPIC_API_KEY`,
+- Every file in `cache/model/` is a hand-written stub. Set `OPENROUTER_API_KEY`,
   delete the stubs and upload `cards.csv` to replace them with real responses.
