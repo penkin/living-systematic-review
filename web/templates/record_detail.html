@@ -12,7 +12,7 @@
 <h1 class="text-2xl font-bold">{{ row.title }}</h1>
 <p class="mt-1 flex flex-wrap items-center gap-2 text-base-content/70">
   <span>{{ row.record_id }}{% if row.year %} · {{ row.year }}{% endif %}{% if row.country_names %} · {{ row.country_names|join:", " }}{% endif %}</span>
-  <span class="badge badge-ghost badge-sm">Tagged by {{ row.model_version|default:"no model" }}</span>
+  <span class="badge badge-soft badge-neutral badge-sm">Tagged by {{ row.model_version|default:"no model" }}</span>
 </p>
 {% if row.abstract %}
 <div class="card mt-3 bg-base-100 shadow-sm">
