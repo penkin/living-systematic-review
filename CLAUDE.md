@@ -8,8 +8,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 .venv/bin/python manage.py runserver    # serve the tool at http://127.0.0.1:8000/
 .venv/bin/python manage.py test         # run every test, web and signal_tool
 .venv/bin/python manage.py test web.tests.UploadTests.test_header_only_is_rejected
+.venv/bin/python -m signal_tool.reference   # refresh reference/worldbank_income.json and METADATA.json
 uv pip install --python .venv/bin/python -r requirements.txt
 ```
+
+Set `ANTHROPIC_API_KEY` to let stage 2 call the model on a cache miss. Without it the
+pipeline runs from the cache alone, and a miss leaves the record listed but unscored.
+`SIGNAL_MODEL` picks the model, default `claude-haiku-4-5`.
 
 Recreate the environment with `uv venv --python 3.13 .venv`. Django 6 needs Python
 3.12 or newer; the system `python3` is 3.9 and will not do.
@@ -22,14 +27,28 @@ Recreate the environment with `uv venv --python 3.13 .venv`. Django 6 needs Pyth
 - `web/` — views, templates, tests. The web layer only.
 - `signal_tool/` — the pipeline. **It must never import Django.** Stage 3 re-runs
   every time a reviewer confirms or overrides a tag, so it must be callable without
-  an HTTP request.
-- `runs/<uuid>/` — one directory per upload, git-ignored. It holds the uploaded CSV,
-  the cached model responses, the tags with their confirmed flags, and `signals.csv`.
-  The uuid is in the URL. Delete the directory and the run is gone.
+  an HTTP request. One module per stage:
+  - `tagging.py` — stage 1. `geography.py` — reference loader and the country, region
+    and income resolver. `reference.py` — the one-off World Bank download.
+  - `suggest.py` — stage 2, the cached model call and the closed-list validation.
+  - `scoring.py` — stage 3, `score_record(tags, review, rules)`.
+  - `pipeline.py` — `run()` for an upload, `rescore()` after a confirmation, the
+    `signals.csv` columns. `evaluate.py` — the D7 checks.
+- `cache/model/<record_id>-<hash8>.json` — committed model responses for
+  `cards.csv`. The hash is the first 8 hex chars of sha256(title + abstract), so an
+  edited abstract is a miss. The 34 files are hand-written stubs with
+  `model_version: stub`; a real call writes the same shape.
+- `runs/<uuid>/` — one directory per upload, git-ignored. It holds `cards.csv`,
+  `model/` (cache hits copied in, plus any new responses), `tags.json` (every tag
+  with its status `rule`, `suggested`, `confirmed` or `overridden`), `signals.csv`,
+  and `handsort.csv` once a reviewer uploads one. The uuid is in the URL. Delete the
+  directory and the run is gone.
 
-Stages 1 and 2 run once per upload. Stage 3 re-runs per record on every confirmation,
-so keep it pure: tags plus `review.yaml` plus the rubric in, criteria and level out.
-Never repeat the stage 2 model call because a human changed a tag.
+Stages 1 and 2 run once per upload, for every record including the separate lane, so
+a `record_type` override can move a record into scoring without a model call. Stage 3
+re-runs for the whole run on every confirmation, so keep it pure: tags plus
+`review.yaml` plus the rubric in, criteria and level out. Never repeat the stage 2
+model call because a human changed a tag.
 
 ## What the tool is
 
@@ -98,9 +117,10 @@ you change the rubric. Read section 5 to find which stage produces a field.
 
 Do not pick a side on either of these silently.
 
-- Criterion A has a 0–3 range. `review.yaml` gives `relevance` three values: Direct,
-  Partial, Not relevant. The mapping of "Mostly relevant" = 2 is undecided
-  (`SPEC.md:177`).
+- Criterion A is decided: the sum of three yes/no parts, `intervention_tested`,
+  `answers_question`, and `lmic_setting == Yes`, one point each. The `Mixed` setting
+  earns 0 in A and 1 in B. `relevance` (Direct, Partial, Not relevant) stays a tagged,
+  confirmable field but feeds no score. `SPEC.md:177` still shows the old mapping.
 - `review.yaml` carries no `absent_contexts` for O1, O2, O3, O4, O6, or O9, and no
   `evidence_contexts` beyond O1. The absent-context override fires on a subset of
   outcomes only.
