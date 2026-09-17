@@ -15,10 +15,11 @@
   · Tagged by {{ row.model_version|default:"no model" }}
 </p>
 {% if row.abstract %}
-<div class="collapse-arrow collapse mt-3 bg-base-100 shadow-sm">
-  <input type="checkbox" aria-label="Show the abstract">
-  <div class="collapse-title font-medium">Abstract</div>
-  <div class="collapse-content"><p>{{ row.abstract }}</p></div>
+<div class="card mt-3 bg-base-100 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title">Abstract</h2>
+    <p>{{ row.abstract }}</p>
+  </div>
 </div>
 {% endif %}
 
