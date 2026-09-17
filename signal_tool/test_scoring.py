@@ -218,3 +218,42 @@ class ReasonTests(unittest.TestCase):
                      "countries": ["BFA"], "regions": ["Western Africa"]}
         reason = score_record(long_tags, REVIEW, RULES)["signal_reason"]
         self.assertLessEqual(len(reason.split()), REASON_WORD_LIMIT)
+
+
+class BreakdownTests(unittest.TestCase):
+    def test_detail_rows_match_the_scores_in_order(self):
+        result = scored()
+        rows = result["criteria_detail"]
+        self.assertEqual([r["criterion"] for r in rows], list("ABCDEFG"))
+        for row in rows:
+            self.assertEqual(row["points"], result[row["criterion"]])
+            self.assertTrue(row["help"])
+        self.assertEqual(sum(r["points"] for r in rows), result["signal_score"])
+        self.assertEqual(result["signal_max"], 15)
+
+    def test_values_are_plain_words(self):
+        rows = {r["criterion"]: r["value"] for r in scored()["criteria_detail"]}
+        self.assertEqual(rows["D"], "Randomised trial")
+        self.assertIn("Tests an intervention: Yes", rows["A"])
+        self.assertEqual(rows["G"], "cardiovascular mortality: low certainty from 6 studies")
+        self.assertEqual(rows["F"], "Published in the update window")
+        duplicate = {r["criterion"]: r["value"] for r in scored(is_duplicate=True)["criteria_detail"]}
+        self.assertEqual(duplicate["F"], "Duplicate of another record in this batch")
+        untagged = {r["criterion"]: r["value"] for r in scored(study_design=None)["criteria_detail"]}
+        self.assertEqual(untagged["D"], "Not tagged")
+
+    def test_level_steps_name_each_branch(self):
+        steps = " ".join(scored(intervention_tested="No", answers_question="No")["level_steps"])
+        self.assertIn("Total 11 of 15", steps)
+        self.assertIn("caps the level at Moderate", steps)
+
+        harm = scored(study_design="other", equity_level="None", policy_relevance="None", harm_reported="Yes")
+        self.assertIn("Override, harm reported: level set to High.", harm["level_steps"])
+
+        skipped = scored(intervention_tested="No", answers_question="No", lmic_setting="No", harm_reported="Yes")
+        self.assertIn("Relevance scored 0, so the overrides do not apply.", skipped["level_steps"])
+
+        scope = scored(outcome_touched="NONE")
+        self.assertEqual(scope["level_steps"][-1], "Ask the team whether this outcome belongs in the review.")
+        self.assertIn("Outcome not covered by the review, so no points",
+                      [r["value"] for r in scope["criteria_detail"]])

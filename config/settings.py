@@ -11,8 +11,9 @@ ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
 
 # The tool keeps no user data between runs, so it needs no database. Dropping
-# admin, auth and sessions is what makes an empty DATABASES viable.
-INSTALLED_APPS = []
+# admin, auth and sessions is what makes an empty DATABASES viable. staticfiles
+# has no models, so it can stay.
+INSTALLED_APPS = ["django.contrib.staticfiles"]
 DATABASES = {}
 
 MIDDLEWARE = [
@@ -33,6 +34,8 @@ TEMPLATES = [
 ]
 
 STATIC_URL = "static/"
+# One built style sheet, web/static/app.css. Rebuild it with `npm run css`.
+STATICFILES_DIRS = [BASE_DIR / "web" / "static"]
 USE_TZ = True
 TIME_ZONE = "Africa/Johannesburg"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

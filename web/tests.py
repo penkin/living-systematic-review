@@ -31,6 +31,11 @@ class UploadTests(SimpleTestCase):
         # This title is not in the committed cache, so the record stays listed but unscored.
         self.assertContains(response, "Not ranked")
         self.assertEqual(len(list(self.runs.iterdir())), 1)
+        with override_settings(RUNS_DIR=self.runs):
+            detail = self.client.get(response.request["PATH_INFO"] + "record/SYN-001/")
+        self.assertContains(detail, "no response for this record yet")
+        self.assertContains(detail, "Not ranked")
+        self.assertNotContains(detail, "How the score was built")
 
     def test_missing_required_column_is_rejected(self):
         response = self.post(b"record_id,title\nSYN-001,No abstract column\n")
@@ -84,7 +89,24 @@ class RunTests(SimpleTestCase):
         self.assertLess(body.index('id="SYN-022"'), body.index('id="SYN-002"'), "HIGH sorts before MODERATE")
         self.assertContains(response, "Override: harm reported")
         self.assertContains(response, "Ask the team whether this outcome belongs in the review.")
-        self.assertContains(response, "Tagged by stub")
+        self.assertContains(response, "/record/SYN-022/")
+
+    def test_record_detail_page(self):
+        page = self.client.get(f"{self.run_url}record/SYN-022/")
+        self.assertContains(page, "How the score was built")
+        self.assertContains(page, "How the level was set")
+        self.assertContains(page, "Relevance to the review question")
+        self.assertContains(page, "One point each for testing an intervention")
+        self.assertContains(page, "Tagged by stub")
+        self.assertContains(page, "Suggested")
+        self.assertContains(page, "Agree")
+        self.assertContains(page, "harm reported")
+
+        aside = self.client.get(f"{self.run_url}record/SYN-031/")
+        self.assertContains(aside, "Set aside")
+        self.assertNotContains(aside, "How the score was built")
+
+        self.assertEqual(self.client.get(f"{self.run_url}record/SYN-999/").status_code, 404)
 
     def test_override_rescores_without_a_model_call(self):
         before = cache_files()
@@ -96,20 +118,21 @@ class RunTests(SimpleTestCase):
             f"{self.run_url}record/SYN-002/tag/", {"field": "harm_reported", "value": "Yes"}
         )
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(response["Location"].endswith("#SYN-002"))
+        self.assertTrue(response["Location"].endswith("/record/SYN-002/"))
         row = self.signals()["SYN-002"]
         self.assertEqual(row["signal_level"], "HIGH")
         self.assertEqual(row["override_triggered"], "harm")
         self.assertEqual(cache_files(), before)
         self.assertEqual(sorted(p.name for p in run_model.iterdir()), model_before)
 
-        page = self.client.get(self.run_url)
-        self.assertContains(page, "overridden")
+        page = self.client.get(response["Location"])
+        self.assertContains(page, "Changed")
+        self.assertContains(page, "Override, harm reported: level set to High.")
 
     def test_confirm_keeps_the_value_and_marks_it_confirmed(self):
-        self.client.post(f"{self.run_url}record/SYN-002/tag/", {"field": "harm_reported", "value": "No"})
-        page = self.client.get(self.run_url)
-        self.assertContains(page, "confirmed")
+        response = self.client.post(f"{self.run_url}record/SYN-002/tag/", {"field": "harm_reported", "value": "No"})
+        page = self.client.get(response["Location"])
+        self.assertContains(page, "Agreed")
         self.assertEqual(self.signals()["SYN-002"]["signal_level"], "MODERATE")
 
     def test_record_type_override_moves_a_record_into_scoring(self):
@@ -149,6 +172,6 @@ class RunTests(SimpleTestCase):
         response = self.client.post(f"{self.run_url}evaluate/", {"handsort": io.BytesIO(handsort)}, follow=True)
         self.assertContains(response, "Record by record")
         self.assertContains(response, "outside its top")
-        self.assertContains(response, 'class="disagree"')
+        self.assertContains(response, 'class="bg-base-200"')
         # SYN-031 is separate lane, so it has no rank and is a regret miss.
         self.assertContains(response, "Not ranked")

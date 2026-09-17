@@ -6,7 +6,6 @@ import yaml
 from django.conf import settings
 from django.http import FileResponse, Http404, HttpResponseBadRequest
 from django.shortcuts import redirect, render
-from django.urls import reverse
 
 from signal_tool import evaluate as d7
 from signal_tool import pipeline
@@ -34,6 +33,8 @@ GROUP_LABELS = {
     "study_design": "Study design",
     "sample_size": "Study size",
 }
+# A rule tag reads as a suggestion too: the reviewer has not looked at it yet.
+STATUS_WORDS = {"suggested": "Suggested", "rule": "Suggested", "confirmed": "Agreed", "overridden": "Changed"}
 
 
 def _read_records(handle):
@@ -111,24 +112,9 @@ def run_detail(request, run_id):
     review, rules, ref = _config()
     rows = pipeline.build_rows(run_dir, review, rules, ref)
     tagged = pipeline.read_tags(run_dir)
-    options = _options(review, rules)
-    option_labels = _option_labels(review, rules)
-
     for row in rows:
-        entry = tagged[row["record_id"]]
-        row["controls"] = [
-            {
-                "field": field,
-                "label": LABELS[field][0],
-                "help": LABELS[field][1],
-                "options": [(v, option_labels.get(v, v)) for v in options[field]],
-                **entry["tags"][field],
-            }
-            for field in pipeline.CONFIRMABLE
-            if field in entry["tags"]
-        ]
-        row["criteria"] = [(c, row[c]) for c in "ABCDEFG"] if row["signal_level"] else []
-        row["changed"] = any(c["status"] in ("confirmed", "overridden") for c in row["controls"])
+        cells = tagged[row["record_id"]]["tags"].values()
+        row["changed"] = any(c["status"] in ("confirmed", "overridden") for c in cells)
 
     # HIGH first, then by score. Unscored (model unavailable) rows sit last but stay listed.
     order = {level: i for i, level in enumerate(reversed(rules["levels"]))}
@@ -147,6 +133,78 @@ def run_detail(request, run_id):
             "separate": [r for r in rows if r["lane"] == "separate"],
             "legend": [(level, rules["suggested_action"][level]) for level in reversed(rules["levels"])],
             "low_level": rules["levels"][0],
+        },
+    )
+
+
+def record_detail(request, run_id, record_id):
+    """One record: its score piece by piece, the level steps, and the tags to check."""
+    run_dir = _run_dir(run_id)
+    review, rules, ref = _config()
+    tagged = pipeline.read_tags(run_dir)
+    entry = tagged.get(record_id)
+    record = next((r for r in pipeline.read_cards(run_dir) if r["record_id"] == record_id), None)
+    if entry is None or record is None:
+        raise Http404("No such record.")
+    row = pipeline.build_row(record, entry, review, rules, ref)
+    tags = entry["tags"]
+    options = _options(review, rules)
+    option_labels = _option_labels(review, rules)
+
+    checks = [
+        {
+            "field": field,
+            "label": LABELS[field][0],
+            "help": LABELS[field][1],
+            "value": tags[field]["value"],
+            "value_label": option_labels.get(tags[field]["value"], tags[field]["value"]),
+            "status_word": STATUS_WORDS[tags[field]["status"]],
+            "status": tags[field]["status"],
+            "evidence": tags[field]["evidence"],
+            "options": [(v, option_labels.get(v, v)) for v in options[field] if v != tags[field]["value"]],
+        }
+        for field in pipeline.CONFIRMABLE
+        if field in tags
+    ]
+
+    def fact(label, text, field=None):
+        if text in (None, "", []):
+            return None
+        return {"label": label, "text": text, "evidence": (tags.get(field) or {}).get("evidence", "")}
+
+    design = tags.get("study_design", {}).get("value")
+    equity = tags.get("equity_level", {}).get("value")
+    factors = tags.get("equity_factors", {}).get("value") or []
+    facts = [
+        fact("Study design", rules["design_labels"].get(design, design), "study_design"),
+        fact("Equity", " · ".join(filter(None, [equity, ", ".join(factors)])), "equity_level"),
+        fact("Policy relevance", tags.get("policy_relevance", {}).get("value"), "policy_relevance"),
+        fact("Study size", tags.get("sample_size", {}).get("value"), "sample_size"),
+        fact("Countries", ", ".join(row["country_names"]), "countries_iso3"),
+        fact(GROUP_LABELS["lmic_setting"], row["lmic_setting"]),
+    ]
+    flags = [
+        text
+        for flag, text in (
+            (row.get("non_english"), "Not in English"),
+            (row.get("secondary_report"), "Secondary report of a study already in the batch"),
+            (row.get("is_duplicate"), f"Duplicate of {row.get('duplicate_of')}"),
+            (row.get("out_of_region"), "No country in the review's regions"),
+            (row.get("validation_errors"), "The model gave values off the list, replaced with safe defaults: "
+             + "; ".join(row.get("validation_errors") or [])),
+        )
+        if flag
+    ]
+    return render(
+        request,
+        "record_detail.html",
+        {
+            "run_id": run_id,
+            "row": row,
+            "checks": checks,
+            "facts": [f for f in facts if f],
+            "flags": flags,
+            "unavailable": entry["model"]["model_status"] != "ok",
         },
     )
 
@@ -170,7 +228,7 @@ def set_tag(request, run_id, record_id):
     cell["value"] = value
     pipeline.write_tags(run_dir, tagged)
     pipeline.rescore(run_dir, review, rules, ref)
-    return redirect(reverse("run_detail", kwargs={"run_id": run_id}) + f"#{record_id}")
+    return redirect("record_detail", run_id=run_id, record_id=record_id)
 
 
 def signals_csv(request, run_id):
