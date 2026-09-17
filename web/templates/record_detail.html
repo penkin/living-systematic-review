@@ -81,42 +81,48 @@
   <div class="card-body">
     <h2 class="card-title">Tags to check</h2>
     <p class="text-base-content/70">Every tag is a suggestion until you look at it. Agree with it, or change it. The score updates at once.</p>
-    <div class="divide-y divide-base-200">
-    {% for check in checks %}
-      <div id="tag-{{ check.field }}" class="-mx-3 grid gap-x-6 gap-y-3 rounded-box px-3 py-4 scroll-mt-4 target:bg-primary/5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_max-content] md:items-start">
-        <div>
-          <div class="font-medium">{{ check.label }}</div>
-          <div class="text-sm text-base-content/60">{{ check.help }}</div>
-        </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <strong>{{ check.value_label|default:"Not tagged" }}</strong>
-            {% if check.status == "confirmed" %}<span class="badge badge-sm badge-success">{{ check.status_word }}</span>
-            {% elif check.status == "overridden" %}<span class="badge badge-sm badge-info">{{ check.status_word }}</span>
-            {% else %}<span class="badge badge-sm badge-ghost">{{ check.status_word }}</span>{% endif %}
-          </div>
-          {% if check.evidence %}<q class="mt-1 block text-sm italic text-base-content/70">{{ check.evidence }}</q>{% endif %}
-        </div>
-        {% if check.status_word == "Suggested" %}
-        <div class="flex items-center gap-2">
-          <form method="post" action="{% url 'set_tag' run_id row.record_id %}">
-            {% csrf_token %}
-            <input type="hidden" name="field" value="{{ check.field }}">
-            <input type="hidden" name="value" value="{{ check.value }}">
-            <button type="submit" class="btn btn-sm btn-primary w-20">Agree</button>
-          </form>
-          <form method="post" action="{% url 'set_tag' run_id row.record_id %}" class="join">
-            {% csrf_token %}
-            <input type="hidden" name="field" value="{{ check.field }}">
-            <select name="value" class="select select-sm join-item w-44" aria-label="Change {{ check.label }} to">
-              {% for value, text in check.options %}<option value="{{ value }}">{{ text }}</option>{% endfor %}
-            </select>
-            <button type="submit" class="btn btn-sm btn-outline join-item">Change</button>
-          </form>
-        </div>
-        {% endif %}
-      </div>
-    {% endfor %}
+    <div class="overflow-x-auto">
+      <table class="table">
+        <tbody>
+        {% for check in checks %}
+          <tr id="tag-{{ check.field }}" class="scroll-mt-4 target:bg-primary/5">
+            <td class="align-top">
+              <div class="font-medium">{{ check.label }}</div>
+              <div class="text-sm text-base-content/60">{{ check.help }}</div>
+            </td>
+            <td class="w-2/5 align-top">
+              <div class="flex items-center gap-2">
+                <strong>{{ check.value_label|default:"Not tagged" }}</strong>
+                {% if check.status == "confirmed" %}<span class="badge badge-sm badge-success">{{ check.status_word }}</span>
+                {% elif check.status == "overridden" %}<span class="badge badge-sm badge-info">{{ check.status_word }}</span>
+                {% else %}<span class="badge badge-sm badge-ghost">{{ check.status_word }}</span>{% endif %}
+              </div>
+              {% if check.evidence %}<q class="mt-1 block text-sm italic text-base-content/70">{{ check.evidence }}</q>{% endif %}
+            </td>
+            <td class="whitespace-nowrap align-top">
+              {% if check.status_word == "Suggested" %}
+              <div class="flex items-center gap-2">
+                <form method="post" action="{% url 'set_tag' run_id row.record_id %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="field" value="{{ check.field }}">
+                  <input type="hidden" name="value" value="{{ check.value }}">
+                  <button type="submit" class="btn btn-sm btn-primary w-20">Agree</button>
+                </form>
+                <form method="post" action="{% url 'set_tag' run_id row.record_id %}" class="join">
+                  {% csrf_token %}
+                  <input type="hidden" name="field" value="{{ check.field }}">
+                  <select name="value" class="select select-sm join-item w-44" aria-label="Change {{ check.label }} to">
+                    {% for value, text in check.options %}<option value="{{ value }}">{{ text }}</option>{% endfor %}
+                  </select>
+                  <button type="submit" class="btn btn-sm btn-outline join-item">Change</button>
+                </form>
+              </div>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
