@@ -139,7 +139,10 @@ def run_detail(request, run_id):
             "tagged": sum(1 for r in rows if not r.get("pending")),
             "signal": signal,
             "separate": [r for r in rows if r["lane"] == "separate"],
-            "legend": [(level, rules["suggested_action"][level]) for level in reversed(rules["levels"])],
+            "levels": [
+                (level, rules["suggested_action"][level], sum(1 for r in signal if r["signal_level"] == level))
+                for level in reversed(rules["levels"])
+            ],
             "low_level": rules["levels"][0],
             "outcomes": [dict(o, points=uncertainty["scores"].get(o["certainty"], uncertainty["default"])) for o in review["outcomes"]],
             "uncertainty_max": uncertainty["max"],

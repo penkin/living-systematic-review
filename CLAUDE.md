@@ -122,7 +122,9 @@ The upload page submits as soon as the reviewer picks a file and shows a spinner
 the run page opens. While the run is `processing`, the run page and a pending record
 page put `data-poll` on `<main>`. The script in `base.html` then fetches the page every
 three seconds and swaps the content in place, so the spinners update without a reload.
-Each record with no `Result` yet shows a spinner.
+Each record with no `Result` yet shows a spinner. After a swap, every element with an
+`id` slides from its old position to its new one, so a row is seen moving up the list
+as it gets ranked. `prefers-reduced-motion` turns the slide off.
 
 Read `SPEC.md` section 4 before you change the decision tree. Read section 6 before
 you change the rubric. Read section 5 to find which stage produces a field.
@@ -143,7 +145,9 @@ Reviewers, not developers, read the pages. Keep them simple.
   `web/views.py`. Option labels come from `review.yaml` and `rubric.yaml`. The
   per-criterion `help`, `value_labels` and the `level_steps` sentences live in
   `rubric.yaml`; `score_record` returns them as `criteria_detail` and `level_steps`.
-- The list at `run/<uuid>/` shows level, score, title, reason and next step. The
+- The list at `run/<uuid>/` shows level, score, title, reason and next step. Above it
+  sits a wrapping row of count blocks: records, one block per level with its next step,
+  and set aside. The counts rise while the run is tagging. The
   record page at `run/<uuid>/record/<record_id>/` shows how the score was built,
   how the level was set, and the five tags with an "Agree" button and a "Change to"
   select. A tag change redirects back to the record page.
