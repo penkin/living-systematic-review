@@ -1,0 +1,10 @@
+<tr>
+  <td>
+    <select name="score_{{ i }}_field" class="select select-sm" aria-label="Field">
+      {% for id, label in field_options %}<option value="{{ id }}"{% if id == row.0 %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </td>
+  <td><input type="text" name="score_{{ i }}_value" value="{{ row.1 }}" class="input input-sm w-full min-w-32" aria-label="Value"></td>
+  <td><input type="number" name="score_{{ i }}_points" value="{{ row.2|default_if_none:1 }}" min="0" required class="input input-sm w-20" aria-label="Points"></td>
+  <td><button type="button" class="btn btn-ghost btn-xs" onclick="this.closest('tr').remove()" aria-label="Remove value">Remove</button></td>
+</tr>

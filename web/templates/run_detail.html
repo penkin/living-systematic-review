@@ -1,46 +1,25 @@
 {% extends "base.html" %}
-{% block main_attrs %}{% if run.status == "processing" %} data-poll{% endif %}{% endblock %}
+{% block main_attrs %}{% if counts.run.status == "processing" %} data-poll{% endif %}{% endblock %}
 {% block nav %}
 <a class="btn btn-ghost btn-sm" href="#review">Review evidence</a>
 <a class="btn btn-ghost btn-sm" href="{% url 'evaluate' run_id %}">Checks</a>
 <a class="btn btn-ghost btn-sm" href="{% url 'signals_csv' run_id %}">Download CSV</a>
-<a class="btn btn-ghost btn-sm" href="{% url 'upload' %}">New upload</a>
+<a class="btn btn-ghost btn-sm" href="{% url 'run_rubric' run_id %}">Rules used</a>
+<a class="btn btn-ghost btn-sm" href="{% url 'run_review' run_id %}">Review used</a>
+<a class="btn btn-ghost btn-sm" href="{% url 'run_list' %}">All runs</a>
 {% endblock %}
 {% block content %}
 <h1 class="text-2xl font-bold">Ranked records</h1>
-{% if run.status == "processing" %}
-<p class="mt-1 flex items-center gap-2 text-base-content/70"><span class="loading loading-spinner loading-sm"></span> Tagged {{ tagged }} of {{ total }} records. This page updates on its own.</p>
-<progress class="progress progress-primary mt-2 w-64" value="{{ tagged }}" max="{{ total }}"></progress>
+{% if counts.run.status == "processing" %}
+<p class="mt-1 flex items-center gap-2 text-base-content/70"><span class="loading loading-spinner loading-sm"></span> Tagged {{ counts.tagged }} of {{ counts.total }} records. This page updates on its own.</p>
+<progress class="progress progress-primary mt-2 w-64" value="{{ counts.tagged }}" max="{{ counts.total }}"></progress>
 {% else %}
 <p class="mt-1 text-base-content/70">Open a record to see how it was scored and to check its tags.</p>
 {% endif %}
 
-<div class="mt-4 flex flex-wrap gap-3">
-  <div class="stat min-w-40 flex-1 rounded-box bg-base-100 shadow-sm">
-    <div class="stat-title">Records</div>
-    <div class="stat-value">{{ total }}</div>
-    <div class="stat-desc">{% if run.status == "processing" %}{{ tagged }} tagged so far{% else %}{{ signal|length }} ranked{% endif %}</div>
-  </div>
-  {% for level, action, count in levels %}
-  <div class="stat min-w-40 flex-1 rounded-box bg-base-100 shadow-sm">
-    <div class="stat-title">{% include "_badge.html" %}</div>
-    <div class="stat-value">{{ count }}</div>
-    <div class="stat-desc">{{ action }}</div>
-  </div>
-  {% endfor %}
-  <div class="stat min-w-40 flex-1 rounded-box bg-base-100 shadow-sm">
-    <div class="stat-title">Checked by a reviewer</div>
-    <div class="stat-value">{{ checked }}</div>
-    <div class="stat-desc">✓ agreed · ✎ changed</div>
-  </div>
-  <div class="stat min-w-40 flex-1 rounded-box bg-base-100 shadow-sm">
-    <div class="stat-title">Set aside</div>
-    <div class="stat-value">{{ separate|length }}</div>
-    <div class="stat-desc">Not a signal decision</div>
-  </div>
-</div>
-{% if run.status == "failed" %}
-<div role="alert" class="alert alert-error mt-4"><span>Tagging stopped: {{ run.error }}. Upload the file again.</span></div>
+{% include "_counts.html" %}
+{% if counts.run.status == "failed" %}
+<div role="alert" class="alert alert-error mt-4"><span>Tagging stopped: {{ counts.run.error }}. Upload the file again.</span></div>
 {% endif %}
 
 <div class="card mt-4 bg-base-100 shadow-sm">

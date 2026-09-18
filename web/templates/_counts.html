@@ -1,0 +1,24 @@
+<div class="mt-4 flex flex-wrap gap-3">
+  <div class="stat min-w-40 flex-1 rounded-box bg-base-100 shadow-sm">
+    <div class="stat-title">Records</div>
+    <div class="stat-value">{{ counts.total }}</div>
+    <div class="stat-desc">{% if counts.run.status == "processing" %}{{ counts.tagged }} tagged so far{% else %}{{ counts.ranked }} ranked{% endif %}</div>
+  </div>
+  {% for level, action, count in counts.levels %}
+  <div class="stat min-w-40 flex-1 rounded-box bg-base-100 shadow-sm">
+    <div class="stat-title">{% include "_badge.html" %}</div>
+    <div class="stat-value">{{ count }}</div>
+    <div class="stat-desc">{{ action }}</div>
+  </div>
+  {% endfor %}
+  <div class="stat min-w-40 flex-1 rounded-box bg-base-100 shadow-sm">
+    <div class="stat-title">Checked by a reviewer</div>
+    <div class="stat-value">{{ counts.checked }}</div>
+    <div class="stat-desc">✓ agreed · ✎ changed</div>
+  </div>
+  <div class="stat min-w-40 flex-1 rounded-box bg-base-100 shadow-sm">
+    <div class="stat-title">Set aside</div>
+    <div class="stat-value">{{ counts.set_aside }}</div>
+    <div class="stat-desc">Not a signal decision</div>
+  </div>
+</div>

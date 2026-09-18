@@ -1,0 +1,18 @@
+<tr>
+  <td><input type="text" name="outcome_id" value="{{ o.id }}" class="input input-sm w-16" aria-label="Outcome id"></td>
+  <td><input type="text" name="outcome_name" value="{{ o.name }}" class="input input-sm w-full min-w-48" aria-label="Outcome name"></td>
+  <td><input type="text" name="outcome_short" value="{{ o.short }}" class="input input-sm w-full min-w-32" aria-label="Short name"></td>
+  <td><input type="number" name="outcome_n" value="{{ o.n_studies|default_if_none:'' }}" min="0" class="input input-sm w-20" aria-label="Studies"></td>
+  <td>
+    <select name="outcome_certainty" class="select select-sm" aria-label="Certainty">
+      {% for c in certainties %}<option value="{{ c }}"{% if c == o.certainty %} selected{% endif %}>{{ c }}</option>{% endfor %}
+    </select>
+  </td>
+  <td><input type="text" name="outcome_absent" value="{{ o.absent }}" class="input input-sm w-full min-w-32" aria-label="Missing from the evidence"></td>
+  <td>
+    <select name="outcome_inverted" class="select select-sm" aria-label="Certainty inverted">
+      <option value="no"{% if not o.inverted %} selected{% endif %}>No</option>
+      <option value="yes"{% if o.inverted %} selected{% endif %}>Yes</option>
+    </select>
+  </td>
+</tr>

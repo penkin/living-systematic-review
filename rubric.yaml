@@ -77,6 +77,107 @@ design_labels: &design_labels
 # Shown on the record page when a source field has no value.
 untagged_label: Not tagged
 
+# Every field a criterion or an override can read, in the order the rubric builder lists
+# them. `source: model` fields are asked of the model with `prompt` as the sentence that
+# explains them; `values` is the closed list, or absent for free text and numbers.
+# `source: review` is the outcome pick, whose values are the review's outcomes.
+# `source: rules` fields are set by stage 1 or the scorer, not by the model; only the
+# label is editable. `labels` turns a value into plain words on the record page.
+fields:
+  - id: record_type
+    label: Record type
+    source: rules
+    values: [retracted, protocol, conference_abstract, commentary, preprint, systematic_review, journal_article]
+    confirmable: true
+  - id: lane
+    label: Lane
+    source: rules
+    values: [signal, separate]
+  - id: study_design
+    label: Study design
+    source: model
+    values: [SR, RCT, non-randomised, cohort, cross-sectional, qualitative, modelling, other]
+    labels: *design_labels
+    prompt: The design of the study.
+  - id: relevance
+    label: Relevance
+    source: model
+    values: [Direct, Partial, Not relevant]
+    prompt: How closely the record matches the review question.
+    confirmable: true
+  - id: outcome_touched
+    label: Outcome
+    source: review
+    prompt: The review outcome the record reports on.
+    confirmable: true
+  - id: intervention_tested
+    label: Tests an intervention
+    source: model
+    values: ["Yes", "No"]
+    prompt: Yes if the record evaluates an intervention.
+  - id: answers_question
+    label: Answers the review question
+    source: model
+    values: ["Yes", "No"]
+    prompt: Yes if the record's result bears on the review question above.
+  - id: equity_level
+    label: Equity
+    source: model
+    values: ["None", "Group included", "Results by factor"]
+    prompt: None, Group included (a PROGRESS-Plus group is in the sample), or Results by factor (results are reported by a PROGRESS-Plus factor).
+  - id: equity_factors
+    label: Equity factors
+    source: model
+    values: [Place of residence, Race/ethnicity/culture/language, Occupation, Gender/sex, Religion, Education, Socioeconomic status, Social capital, Age, Disability, Other]
+    prompt: The PROGRESS-Plus factors the results are broken down by.
+  - id: harm_reported
+    label: Harm reported
+    source: model
+    values: ["Yes", "No", Unclear]
+    prompt: Yes only if an adverse event or harm is a reported finding.
+    confirmable: true
+  - id: new_intervention_class
+    label: New kind of intervention
+    source: model
+    values: ["Yes", "No"]
+    prompt: Yes if the record tests a class not in the list above.
+    confirmable: true
+  - id: new_class_name
+    label: Name of the new class
+    source: model
+    prompt: The name of the new intervention class, or an empty string.
+  - id: policy_relevance
+    label: Policy relevance
+    source: model
+    values: ["None", Some, Direct]
+    prompt: None, Some, or Direct (the record evaluates a policy or programme).
+  - id: countries_iso3
+    label: Countries
+    source: model
+    prompt: ISO 3166 alpha-3 codes of the study countries.
+  - id: sample_size
+    label: Study size
+    source: model
+    prompt: Participants or units as an integer, or null.
+  - id: lmic_setting
+    label: Low- or middle-income setting
+    source: rules
+    values: ["Yes", "No", Mixed, Unclear]
+    labels: &lmic_labels {"Yes": Low- or middle-income, Mixed: Mixed settings, "No": High-income, Unclear: Setting unclear}
+  - id: recency_score
+    label: Published in the update window
+    source: rules
+    values: [1, 0]
+    labels: &recency_labels {1: Published in the update window, 0: Published before the update window}
+  - id: outcome_certainty
+    label: Review certainty on the outcome
+    source: rules
+    values: [High, Moderate, Low, Very low]
+  - id: absent_context_hit
+    label: Setting missing from the evidence
+    source: rules
+    values: ["Yes", "No"]
+
 # Scoring criteria. Stage 3. A separate-lane record is never scored at all.
 #
 # Each criterion maps a source field to a score. A value that is not listed takes
@@ -115,7 +216,7 @@ criteria:
     scores:
       Mixed: 1
       "Yes": 2
-    value_labels: {"Yes": Low- or middle-income, Mixed: Mixed settings, "No": High-income, Unclear: Setting unclear}
+    value_labels: *lmic_labels
 
   C:
     name: Equity
@@ -159,7 +260,7 @@ criteria:
     default: 0
     scores:
       1: 1
-    value_labels: {1: Published in the update window, 0: Published before the update window}
+    value_labels: *recency_labels
     # SPEC.md section 6: a duplicate scores 0 whatever its year.
     zero_when_true: is_duplicate
     zero_when_true_label: Duplicate of another record in this batch

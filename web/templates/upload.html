@@ -1,6 +1,9 @@
 {% extends "base.html" %}
+{% block nav %}
+<a class="btn btn-ghost btn-sm" href="{% url 'run_list' %}">All runs</a>
+{% endblock %}
 {% block content %}
-<div class="mx-auto max-w-2xl">
+<div class="mx-auto max-w-4xl">
   <h1 class="text-2xl font-bold">Check new records against your review</h1>
   <p class="mt-1 text-base-content/70">The tool ranks each record High, Moderate or Low with a short reason. You decide what to do with it.</p>
 
@@ -10,22 +13,23 @@
     <li class="step">Check the tags</li>
   </ul>
 
-  <div class="card mt-6 bg-base-100 shadow-sm">
-    <div class="card-body">
-      {% if error %}<div role="alert" class="alert alert-error"><span>{{ error }}</span></div>{% endif %}
-      <form method="post" enctype="multipart/form-data" class="flex flex-col gap-4" onsubmit="this.querySelector('button').disabled = true; this.querySelector('[data-busy]').hidden = false">
-        {% csrf_token %}
+  <form method="post" enctype="multipart/form-data" class="mt-6 flex flex-col gap-4" onsubmit="this.querySelector('[type=submit]').disabled = true; this.querySelector('[data-busy]').hidden = false">
+    {% csrf_token %}
+    <div class="card bg-base-100 shadow-sm">
+      <div class="card-body">
+        {% if error %}<div role="alert" class="alert alert-error"><span>{{ error }}</span></div>{% endif %}
         <label class="flex flex-col gap-1">
           <span class="font-medium">Records file</span>
-          <input type="file" name="cards" accept=".csv,text/csv" required class="file-input w-full" onchange="this.form.requestSubmit()">
+          <input type="file" name="cards" accept=".csv,text/csv" required class="file-input w-full">
           <span class="text-sm text-base-content/60">A CSV with the columns <code>record_id</code>, <code>title</code> and <code>abstract</code>. Covidence, Rayyan and EPPI-Reviewer exports work as they are.</span>
         </label>
         <div class="card-actions items-center gap-3">
           <button type="submit" class="btn btn-primary">Rank the records</button>
           <span data-busy hidden class="flex items-center gap-2 text-base-content/70"><span class="loading loading-spinner loading-sm"></span> Reading the file. The list opens in a moment.</span>
         </div>
-      </form>
+      </div>
     </div>
-  </div>
+
+  </form>
 </div>
 {% endblock %}

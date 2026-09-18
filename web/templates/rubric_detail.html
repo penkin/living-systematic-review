@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block nav %}
+<a class="btn btn-ghost btn-sm" href="{% url 'rubric_list' %}">All rubrics</a>
+<a class="btn btn-ghost btn-sm" href="{% url 'run_list' %}">All runs</a>
+{% endblock %}
+{% block content %}
+<form method="post" class="mx-auto flex max-w-5xl flex-col gap-4">
+  {% csrf_token %}
+  <input type="hidden" name="settings" value="1">
+  <div class="flex flex-wrap items-end justify-between gap-3">
+    <div class="flex flex-wrap items-end gap-3">
+      <label class="flex flex-col gap-1"><span class="font-medium">Rubric name</span><input type="text" name="rubric_name" value="{{ rubric.name }}" required class="input"></label>
+      <label class="flex flex-col gap-1"><span class="font-medium">Rules version</span><input type="text" name="rubric_version" value="{{ rubric_version }}" class="input w-32"></label>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <a class="btn btn-ghost btn-sm" href="{% url 'rubric_rubric' rubric.pk %}">rubric.yaml</a>
+      <a class="btn btn-ghost btn-sm" href="{% url 'rubric_review' rubric.pk %}">review.yaml</a>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </div>
+  </div>
+  {% if error %}<div role="alert" class="alert alert-error"><span>{{ error }}</span></div>{% endif %}
+  {% if saved %}<div role="alert" class="alert alert-success"><span>Saved.</span></div>{% endif %}
+  <p class="text-sm text-base-content/70">This rubric is not used by a run yet. Build it here; the switch to ranking with it comes next.</p>
+
+  <details class="collapse collapse-arrow bg-base-100 shadow-sm" open>
+    <summary class="collapse-title font-medium">Fields <span class="text-sm font-normal text-base-content/60">What the model is asked about each record, and what the tool works out itself.</span></summary>
+    <div class="collapse-content flex flex-col gap-2">
+      <div class="overflow-x-auto">
+        <table class="table table-sm">
+          <thead><tr><th>Id</th><th>Label</th><th>Values, comma separated</th><th>What the model is asked</th><th>Confirmable</th><th></th></tr></thead>
+          <tbody id="fields">
+            {% for f in fields %}{% include "_field_row.html" %}{% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <template>{% include "_field_row.html" with f=None %}</template>
+      <button type="button" class="btn btn-sm self-start" onclick="addRow(this, '#fields')">Add a field</button>
+      <p class="text-sm text-base-content/60">A confirmable field gets an Agree button and a Change to select on the record page. Save after adding a field, so the criteria and overrides below can pick it.</p>
+    </div>
+  </details>
+
+  <details class="collapse collapse-arrow bg-base-100 shadow-sm" open>
+    <summary class="collapse-title font-medium">Criteria <span class="text-sm font-normal text-base-content/60">How a record earns points. Its total sets the level.</span></summary>
+    <div class="collapse-content flex flex-col gap-3">
+      <div id="criteria" class="grid gap-4 md:grid-cols-2">
+        {% for c in criteria %}{% include "_criterion.html" with i=forloop.counter0 %}{% endfor %}
+      </div>
+      <template data-index>{% include "_criterion.html" with c=None i="__i__" %}</template>
+      <button type="button" class="btn btn-sm self-start" onclick="addRow(this, '#criteria')">Add a criterion</button>
+    </div>
+  </details>
+
+  <details class="collapse collapse-arrow bg-base-100 shadow-sm">
+    <summary class="collapse-title font-medium">Levels <span class="text-sm font-normal text-base-content/60">Thresholds, the relevance caps and the next step per level.</span></summary>
+    <div class="collapse-content">
+      {% include "_levels.html" %}
+    </div>
+  </details>
+
+  <details class="collapse collapse-arrow bg-base-100 shadow-sm" open>
+    <summary class="collapse-title font-medium">Overrides <span class="text-sm font-normal text-base-content/60">Applied after the threshold, in this order.</span></summary>
+    <div class="collapse-content flex flex-col gap-2">
+      <div class="overflow-x-auto">
+        <table class="table table-sm">
+          <thead><tr><th>Id</th><th>Label</th><th>Field</th><th>Equals</th><th>Effect</th><th></th></tr></thead>
+          <tbody id="overrides">
+            {% for o in overrides %}{% include "_override_row.html" %}{% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <template>{% include "_override_row.html" with o=None %}</template>
+      <button type="button" class="btn btn-sm self-start" onclick="addRow(this, '#overrides')">Add an override</button>
+    </div>
+  </details>
+
+  <details class="collapse collapse-arrow bg-base-100 shadow-sm">
+    <summary class="collapse-title font-medium">Open questions <span class="text-sm font-normal text-base-content/60">Switches, income groups and the regret check.</span></summary>
+    <div class="collapse-content flex flex-col gap-6">
+      {% include "_switches.html" %}
+    </div>
+  </details>
+
+  <details class="collapse collapse-arrow bg-base-100 shadow-sm">
+    <summary class="collapse-title font-medium">The review <span class="text-sm font-normal text-base-content/60">Question, outcomes and their certainty.</span></summary>
+    <div class="collapse-content flex flex-col gap-6">
+      {% include "_review_form.html" %}
+    </div>
+  </details>
+
+  <div class="flex justify-end"><button type="submit" class="btn btn-primary">Save</button></div>
+</form>
+<script>
+  let nextIndex = 1000;
+  function addRow(button, target) {
+    const template = button.previousElementSibling;
+    let html = template.innerHTML;
+    if (template.hasAttribute("data-index")) html = html.replaceAll("__i__", nextIndex++);
+    const parent = button.closest("[data-criterion]") || document;
+    parent.querySelector(target).insertAdjacentHTML("beforeend", html);
+  }
+</script>
+{% endblock %}
