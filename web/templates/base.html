@@ -17,6 +17,20 @@
 {% block content %}{% endblock %}
 </main>
 <script>
+// The record filter hides rows whose text lacks the query. Delegated to the document,
+// because the poll swap below replaces the input every three seconds.
+function filterRows(query) {
+  const main = document.querySelector("main");
+  const input = main.querySelector("[data-filter]");
+  if (!input) return;
+  input.value = query;
+  const q = query.trim().toLowerCase();
+  for (const row of main.querySelectorAll("tbody tr[id]")) row.hidden = q !== "" && !row.textContent.toLowerCase().includes(q);
+}
+document.addEventListener("input", (event) => {
+  if (event.target.matches("[data-filter]")) filterRows(event.target.value);
+});
+
 // A page with data-poll is still being tagged. Swap the content in place: a full
 // reload flashes and loses the scroll position every three seconds. Elements with
 // an id (the record rows) then slide from their old position to their new one, so
@@ -41,7 +55,9 @@
       .then((html) => {
         const fresh = new DOMParser().parseFromString(html, "text/html").querySelector("main");
         const before = tops();
+        const query = main.querySelector("[data-filter]")?.value ?? "";
         main.innerHTML = fresh.innerHTML;
+        filterRows(query);
         if (!still) slide(before);
         main.toggleAttribute("data-poll", fresh.hasAttribute("data-poll"));
         if (main.hasAttribute("data-poll")) setTimeout(poll, 3000);
