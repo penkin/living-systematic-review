@@ -12,7 +12,11 @@ if (BASE_DIR / ".env").is_file():
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-only-not-for-deployment")
 DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "[::1]"]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "[::1]", *filter(None, os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(","))]
+# Fly's proxy ends TLS and sets this header; without it every HTTPS form post fails the CSRF origin check.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# One shared password for the hosted tool, asked for by the browser. Empty turns the gate off.
+APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
 
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
@@ -30,7 +34,9 @@ DATABASES = {
 }
 
 MIDDLEWARE = [
+    "web.middleware.PasswordGate",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
 ]
@@ -49,6 +55,8 @@ TEMPLATES = [
 STATIC_URL = "static/"
 # One built style sheet, web/static/app.css. Rebuild it with `npm run css`.
 STATICFILES_DIRS = [BASE_DIR / "web" / "static"]
+# WhiteNoise serves that one file from web/static as is, so a deploy needs no collectstatic step.
+WHITENOISE_USE_FINDERS = True
 USE_TZ = True
 TIME_ZONE = "Africa/Johannesburg"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
