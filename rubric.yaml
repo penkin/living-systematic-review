@@ -138,7 +138,7 @@ fields:
     label: Harm reported
     source: model
     values: ["Yes", "No", Unclear]
-    prompt: Yes only if an adverse event or harm is a reported finding.
+    prompt: Yes only if the record reports an adverse event or harm caused by an intervention. Harm from the exposure itself, such as deaths from heat, is No.
     confirmable: true
   - id: new_intervention_class
     label: New kind of intervention

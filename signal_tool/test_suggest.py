@@ -128,5 +128,5 @@ class ValidateTests(unittest.TestCase):
         self.assertEqual(schema["properties"]["countries_iso3"], {"type": "array", "items": {"type": "string"}})
         self.assertEqual(schema["properties"]["sample_size"], {"type": ["integer", "null"]})
         self.assertIn(REVIEW["review_question"].strip(), system)
-        self.assertIn("- harm_reported: Yes only if an adverse event or harm is a reported finding.", system)
+        self.assertIn("- harm_reported: Yes only if the record reports an adverse event or harm caused by an intervention.", system)
         self.assertNotIn("record_type", system)
