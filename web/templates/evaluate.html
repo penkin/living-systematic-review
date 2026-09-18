@@ -31,8 +31,8 @@
       {% csrf_token %}
       <label class="flex flex-col gap-1">
         <span class="font-medium">Your sort file</span>
-        <input type="file" name="handsort" accept=".csv,text/csv" required class="file-input w-full max-w-md">
-        <span class="text-sm text-base-content/60">A CSV with the columns <code>record_id</code> and <code>hand_level</code>. Use HIGH, MODERATE or LOW.</span>
+        <input type="file" name="handsort" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" required class="file-input w-full max-w-md">
+        <span class="text-sm text-base-content/60">Either a file with one row per record, with a <code>record_id</code> or <code>Record</code> column and a <code>hand_level</code> or <code>SIGNAL</code> column (HIGH, MODERATE, LOW, or ROUTE OUT for set aside), or the reviewers' scoring sheet with the record ids across the top and one question per row. Other columns are compared where the tool has the same field. Commas, semicolons, tabs or pipes all work.</span>
       </label>
       <div class="card-actions"><button type="submit" class="btn btn-primary">Compare</button></div>
     </form>
@@ -40,9 +40,30 @@
 </div>
 
 {% if agreement %}
+{% if unmatched %}
+<div role="alert" class="alert mt-4"><span>Not in this run, so not compared: {{ unmatched|join:", " }}.</span></div>
+{% endif %}
+
+{% if questions %}
+<div class="card mt-4 bg-base-100 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title">Question by question</h2>
+    <p class="text-sm text-base-content/60">Records where your answer and the tool's tag say the same thing. A blank, NA or unlisted answer is not compared.</p>
+    <table class="table table-sm w-auto">
+      <thead><tr><th>Your question</th><th>Tool's tag</th><th>Compared</th><th>Agree</th></tr></thead>
+      <tbody>
+      {% for q in questions.fields %}<tr><td>{{ q.label }}</td><td>{{ q.tag_label }}</td><td>{{ q.n }}</td><td>{{ q.agree }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+    {% if unmapped %}<p class="text-sm text-base-content/60">Not compared, the tool has no tag for these: {{ unmapped|join:", " }}.</p>{% endif %}
+  </div>
+</div>
+{% endif %}
+
 <div class="card mt-4 bg-base-100 shadow-sm">
   <div class="card-body">
     <h2 class="card-title">Records you rated High that the tool put outside its top {{ top_n }}</h2>
+    {% if questions %}<p class="text-sm text-base-content/60">Your level is your answers, scored with the same rubric as the tool.</p>{% endif %}
     {% if regret %}
     <table class="table">
       <thead><tr><th>Record</th><th>Tool rank</th><th>Tool level</th><th>Tool's reason</th></tr></thead>
@@ -57,7 +78,7 @@
 <div class="card mt-4 bg-base-100 shadow-sm">
   <div class="card-body">
     <h2 class="card-title">Agreement</h2>
-    <p class="text-sm text-base-content/60">Rows are the tool's level. Columns are yours.</p>
+    <p class="text-sm text-base-content/60">Rows are the tool's level. Columns are yours.{% if questions %} Your level is your answers, scored with the same rubric as the tool.{% endif %}</p>
     <table class="table w-auto">
       <thead><tr><th>Tool level</th>{% for hand in agreement.levels %}<th>Your level: {% include "_badge.html" with level=hand %}</th>{% endfor %}</tr></thead>
       <tbody>
@@ -72,17 +93,21 @@
 <div class="card mt-4 bg-base-100 shadow-sm">
   <div class="card-body">
     <h2 class="card-title">Record by record</h2>
-    <p class="text-sm text-base-content/60">Shaded rows differ.</p>
+    <p class="text-sm text-base-content/60">Shaded rows differ on the level.{% if questions %} A shaded cell differs on that question; what your answer means sits under the tool's tag.{% endif %}</p>
     <div class="overflow-x-auto">
       <table class="table table-sm">
-        <thead><tr><th>Record</th><th>Tool level</th><th>Your level</th>{% for label in labels %}<th>{{ label }}</th>{% endfor %}</tr></thead>
+        <thead><tr><th>Record</th><th>Tool level</th><th>Your level</th>{% if questions %}{% for q in questions.fields %}<th>{{ q.label }}</th>{% endfor %}{% else %}{% for label in labels %}<th>{{ label }}</th>{% endfor %}{% endif %}</tr></thead>
         <tbody>
         {% for r in agreement.records %}
           <tr {% if not r.agree %}class="bg-base-200"{% endif %}>
             <td><a class="link-hover font-medium" href="{% url 'record_detail' run_id r.record_id %}">{{ r.record_id }}</a></td>
             <td>{% include "_badge.html" with level=r.tool_level %}</td>
             <td>{% include "_badge.html" with level=r.hand_level %}</td>
-            {% for tag in r.tags %}<td>{{ tag }}</td>{% endfor %}
+            {% if questions %}
+              {% for c in r.cells %}<td class="align-top{% if c.agree is False %} bg-base-200{% endif %}">{{ c.tool_label }}{% if c.hand %}<div class="text-sm text-base-content/60">You: {{ c.hand_label }}</div>{% endif %}</td>{% endfor %}
+            {% else %}
+              {% for tag in r.tags %}<td>{{ tag }}</td>{% endfor %}
+            {% endif %}
           </tr>
         {% endfor %}
         </tbody>
