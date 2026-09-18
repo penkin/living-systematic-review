@@ -12,6 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 .venv/bin/python -m signal_tool.reference   # refresh reference/worldbank_income.json and METADATA.json
 uv pip install --python .venv/bin/python -r requirements.txt
 npm install && npm run css                  # rebuild web/static/app.css after a template change
+fly deploy --ha=false                       # ship the current checkout to the one Fly machine
 ```
 
 Set `OPENROUTER_API_KEY` so stage 2 can call the model. Without it the upload page
@@ -30,6 +31,18 @@ Run the server with `--noreload`. Tagging runs in a thread inside the server pro
 and the autoreloader restarts that process on a file save, which leaves the run stuck
 in `processing`. Set `SIGNAL_DB` to put the SQLite file somewhere other than
 `db.sqlite3` at the repo root.
+
+## Hosting
+
+The tool runs on one Fly.io machine, `fly.toml` and `Dockerfile` at the repo root. The
+SQLite file lives on a Fly volume at `/data`, so it survives a deploy. Gunicorn runs one
+worker, because the tagging thread lives inside the web process. Four secrets, set with
+`fly secrets set`: `OPENROUTER_API_KEY`, `DJANGO_SECRET_KEY`, `APP_PASSWORD`, and
+optionally `SIGNAL_MODEL`. `APP_PASSWORD` is the one shared password; the browser asks for
+it, and an empty value turns the gate off. The machine stops when idle and starts on the
+next request, so a run can die if every tab closes during tagging. `config/wsgi.py` marks
+any run still `processing` at boot as `failed` with a plain message. A deploy restarts
+the process, so deploy only when no run is `processing`.
 
 ## What the tool is
 

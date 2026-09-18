@@ -1,9 +1,10 @@
+import base64
 import csv
 import io
 from unittest.mock import patch
 
 from django.conf import settings
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 
 from signal_tool import pipeline
 from signal_tool.suggest import MODEL
@@ -281,3 +282,22 @@ class RunTests(WebTestCase):
         self.assertContains(page, "Groups that count: Low income, Lower-middle income, Upper-middle income")
         page = self.client.get(f"{self.run_url}record/SYN-027/")
         self.assertContains(page, "No country found in the title, abstract or location")
+
+
+class PasswordGateTests(TestCase):
+    @staticmethod
+    def basic(password):
+        return "Basic " + base64.b64encode(f"anyone:{password}".encode()).decode()
+
+    @override_settings(APP_PASSWORD="secret")
+    def test_the_browser_is_asked_for_the_password(self):
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 401)
+        self.assertIn("Basic", response["WWW-Authenticate"])
+        self.assertEqual(self.client.get("/", HTTP_AUTHORIZATION=self.basic("wrong")).status_code, 401)
+        self.assertEqual(self.client.get("/", HTTP_AUTHORIZATION="Basic not-base64").status_code, 401)
+        self.assertEqual(self.client.get("/", HTTP_AUTHORIZATION=self.basic("secret")).status_code, 200)
+
+    @override_settings(APP_PASSWORD="")
+    def test_no_password_means_no_gate(self):
+        self.assertEqual(self.client.get("/").status_code, 200)
