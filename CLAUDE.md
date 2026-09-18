@@ -165,8 +165,18 @@ Reviewers, not developers, read the pages. Keep them simple.
   override matches mechanically. The file also holds `out_of_scope_outcomes`,
   `intervention_classes_represented`, and `allowed_values`, the closed lists the
   tagger must pick from.
-- `handsort.csv` — the reviewer's own sort for the D7 checks. Columns `record_id`
-  and `hand_level` with `HIGH`, `MODERATE` or `LOW`.
+- The hand sort for the D7 checks, uploaded on the evaluate page, in either shape and
+  with commas, semicolons, tabs or pipes: one row per record with an id column
+  (`record_id` or `Record`) and a level column (`hand_level` or `SIGNAL`; the first
+  word is the level, so `HIGH (override)` is High and `ROUTE OUT` is set aside), or
+  the reviewers' scoring sheet (`signal_tool/testdata/handsheet.csv`) with the record
+  ids across the top and one question per row. `hand_sheet` in `rubric.yaml` maps each
+  column or question label to a tool field and each answer to the tool values it
+  agrees with, with an optional plain-words `labels` map; the page shows the meaning
+  of an answer, never the raw letter. Other columns of the ranked file (`Total`,
+  `A Rel`…`G CERTAINTY`, `Outcome`, `Review certainty`, `Override`) compare against
+  the tool's own columns. Without a level column the hand level is the answers scored
+  with the same rubric.
 
 ## Decisions and gaps
 
@@ -174,6 +184,10 @@ Reviewers, not developers, read the pages. Keep them simple.
   `answers_question`, and `lmic_setting == Yes`, one point each. The `Mixed` setting
   earns 0 in A and 1 in B. `relevance` stays a tagged, confirmable field but feeds no
   score. `SPEC.md:177` still shows the old mapping.
+- LMIC means a World Bank income group in `lmic_income_levels` (`rubric.yaml`), today
+  LIC, LMC and UMC, so South Africa counts. The reviewers' sheet marks South Africa as
+  not LMIC. The record page shows each country's group and the groups that count, so
+  the team can see the rule and change the list.
 - `review.yaml` carries `absent_contexts` for O5, O7 and O8 only. The absent-context
   override never fires for the other six outcomes until the team fills the list.
 - `signal_tool/testdata/model/` holds real responses from `anthropic/claude-haiku-4.5`.

@@ -42,7 +42,7 @@ COLUMNS = (
     "study_design", "relevance", "outcome_touched", "intervention_tested", "answers_question",
     "equity_level", "equity_factors", "harm_reported", "new_intervention_class", "new_class_name",
     "policy_relevance", "sample_size",
-    "countries", "regions", "lmic_setting",
+    "countries", "regions", "lmic_setting", "income_levels",
     "outcome_certainty", "n_studies",
     "A", "B", "C", "D", "E", "F", "G", "signal_score", "level_from_threshold", "signal_level",
     "override_triggered", "signal_reason", "suggested_action", "scope_question", "out_of_region",
@@ -103,7 +103,7 @@ def build_row(record, entry, review, rules, ref):
 
     codes = set(tags.get("countries_rule") or []) | set(tags.get("countries_iso3") or [])
     geography = resolve(codes, ref, rules)
-    row.update({k: geography[k] for k in ("countries", "country_names", "regions", "lmic_setting")})
+    row.update({k: geography[k] for k in ("countries", "country_names", "regions", "income_levels", "lmic_setting")})
 
     if tags["lane"] == "signal" and entry["model"]["model_status"] == "ok":
         row.update(score_record({**tags, **geography}, review, rules))

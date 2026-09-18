@@ -33,6 +33,20 @@ GROUP_LABELS = {
     "study_design": "Study design",
     "sample_size": "Study size",
 }
+# The tool fields the reviewers' sheet checks, in the words of the pages above.
+FIELD_LABELS = {
+    **{k: v[0] for k, v in LABELS.items()},
+    **GROUP_LABELS,
+    "lane": "Ranked or set aside",
+    "intervention_tested": "Tests an intervention",
+    "answers_question": "Answers the review question",
+    "equity_level": "Equity",
+    "policy_relevance": "Policy relevance",
+    "signal_score": "Score",
+    "outcome_certainty": "Review certainty",
+    "override_triggered": "Override",
+}
+LANE_LABELS = {"signal": "Ranked", "separate": "Set aside"}
 # A rule tag reads as a suggestion too: the reviewer has not looked at it yet.
 STATUS_WORDS = {"suggested": "Suggested", "rule": "Suggested", "confirmed": "Agreed", "overridden": "Changed"}
 
@@ -68,6 +82,51 @@ def _option_labels(review, rules):
     labels[OUTCOME_NONE] = "None of the review outcomes"
     labels.update({k: k.replace("_", " ").capitalize() for k in rules["record_types"]})
     return labels
+
+
+def _value_labels(review, rules):
+    """Plain words per tool field for the values the hand sheet compares."""
+    labels = {c["source_field"]: c["value_labels"] for c in rules["criteria"].values() if "value_labels" in c and "source_field" in c}
+    labels["outcome_touched"] = _option_labels(review, rules)
+    labels["lane"] = LANE_LABELS
+    labels["override_triggered"] = {"": "None", **{o["name"]: o["label"] for o in rules["overrides"]}}
+    return labels
+
+
+def _tool_label(cell, value_labels, rules):
+    """The tool's value in plain words; a joined override list is labelled part by part."""
+    tool, labels = cell["tool"], value_labels.get(cell["field"], {})
+    if tool in (None, ""):
+        return labels.get("", rules["untagged_label"])
+    parts = tool.split(";") if isinstance(tool, str) else [tool]
+    return ", ".join(str(labels.get(p, p)) for p in parts)
+
+
+def _hand_label(cell, value_labels):
+    """The meaning of a reviewer's answer: the rubric's label, else the tool values it agrees with."""
+    hand = cell["hand"]
+    if hand is None:
+        return ""
+    labels = value_labels.get(cell["field"], {})
+    return hand["label"] or " or ".join(str(labels.get(v, v)) for v in hand["values"])
+
+
+def _lmic_text(row, tags, rules, ref):
+    """How the setting was decided: each country, its World Bank group, where the country came from, and the groups that count."""
+    head = rules["criteria"]["B"]["value_labels"].get(row["lmic_setting"], row["lmic_setting"])
+    codes = row.get("countries") or []
+    if not codes:
+        return f"{head}. No country found in the title, abstract or location, and the model suggested none."
+    from_text = set(tags.get("countries_rule", {}).get("value") or [])
+    from_model = set(tags.get("countries_iso3", {}).get("value") or [])
+    income = rules["income_labels"]
+    sources = {(True, True): "from the text and the model", (True, False): "from the text", (False, True): "from the model"}
+    countries = "; ".join(
+        f"{name}: {income.get(ref['income'].get(code), 'no World Bank group')}, {sources[(code in from_text, code in from_model)]}"
+        for code, name in zip(codes, row.get("country_names") or codes)
+    )
+    counted = ", ".join(income.get(level, level) for level in rules["lmic_income_levels"])
+    return f"{head}. {countries}. World Bank income groups downloaded {ref['date']}. Groups that count: {counted}."
 
 
 def _rows(run):
@@ -197,7 +256,7 @@ def record_detail(request, run_id, record_id):
         fact("Policy relevance", tags.get("policy_relevance", {}).get("value"), "policy_relevance"),
         fact("Study size", tags.get("sample_size", {}).get("value"), "sample_size"),
         fact("Countries", ", ".join(row["country_names"]), "countries_iso3"),
-        fact(GROUP_LABELS["lmic_setting"], row.get("lmic_setting")),
+        fact(GROUP_LABELS["lmic_setting"], _lmic_text(row, tags, rules, ref) if row.get("lmic_setting") else None),
     ]
     flags = [
         text
@@ -282,11 +341,30 @@ def evaluate(request, run_id):
     equity = [(GROUP_LABELS.get(k, k), groups) for k, groups in d7.equity(rows, rules).items()]
     context = {"run_id": run_id, "error": error, "equity": equity, "top_n": rules["regret_top_n"]}
     if run.handsort:
-        handsort = d7.parse_handsort(run.handsort)
-        context["agreement"] = d7.agreement(rows, handsort, rules)
+        hand = d7.parse_handsort(run.handsort)
+        tags, unmapped = d7.hand_tags(hand, rules)
+        levels = d7.hand_levels(rows, hand, tags, review, rules)
+        context["agreement"] = d7.agreement(rows, levels, rules)
         option_labels = _option_labels(review, rules)
         for record in context["agreement"]["records"]:
             record["tags"] = [option_labels.get(record[f], record[f]) for f in pipeline.CONFIRMABLE]
-        context["regret"] = d7.regret(rows, handsort, rules["regret_top_n"])
+        context["regret"] = d7.regret(rows, levels, rules["regret_top_n"])
         context["labels"] = [LABELS[f][0] for f in pipeline.CONFIRMABLE]
+        context["unmatched"] = sorted(set(hand) - {r["record_id"] for r in rows})
+        if unmapped or any(tags.values()):
+            questions = d7.tag_agreement(rows, tags, rules)
+            value_labels = _value_labels(review, rules)
+            for question in questions["fields"]:
+                field = question["field"]
+                question["tag_label"] = FIELD_LABELS.get(field) or rules["criteria"].get(field, {}).get("name", field)
+            cells = {}
+            for record in questions["records"]:
+                for cell in record["cells"]:
+                    cell["tool_label"] = _tool_label(cell, value_labels, rules)
+                    cell["hand_label"] = _hand_label(cell, value_labels)
+                cells[record["record_id"]] = record["cells"]
+            for record in context["agreement"]["records"]:
+                record["cells"] = cells.get(record["record_id"], [])
+            context["questions"] = questions
+            context["unmapped"] = unmapped
     return render(request, "evaluate.html", context, status=400 if error else 200)

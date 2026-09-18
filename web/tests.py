@@ -247,3 +247,37 @@ class RunTests(WebTestCase):
         self.assertContains(response, 'class="bg-base-200"')
         # SYN-031 is separate lane, so it has no rank and is a regret miss.
         self.assertContains(response, "Not ranked")
+        self.assertNotContains(response, "Question by question")
+
+    def test_evaluate_page_reads_the_reviewers_sheet(self):
+        sheet = open(settings.BASE_DIR / "signal_tool" / "testdata" / "handsheet.csv", "rb").read()
+        response = self.client.post(f"{self.run_url}evaluate/", {"handsort": io.BytesIO(sheet)}, follow=True)
+        self.assertContains(response, "Question by question")
+        self.assertContains(response, "Not rural?")
+        self.assertNotContains(response, "You: 03, 06")
+        self.assertContains(response, "You: O3 ")
+        self.assertContains(response, " or O6 ")
+        self.assertContains(response, "You: Low- or middle-income")
+        self.assertContains(response, "You: Other design")
+        self.assertContains(response, "scored with the same rubric")
+        self.assertNotContains(response, "Not in this run")
+
+    def test_evaluate_page_reads_the_ranked_file(self):
+        ranked = (b"#,Record,Title,SIGNAL,Total,A Rel,B LMIC,Outcome,Review certainty,Override\n"
+                  b"1,SYN-001,Nairobi,HIGH (override),12,3,2,5,Very low,HARM\n"
+                  b"2,SYN-031,Lusaka,ROUTE OUT,2,0,0,,,NOT A STUDY\n")
+        response = self.client.post(f"{self.run_url}evaluate/", {"handsort": io.BytesIO(ranked)}, follow=True)
+        self.assertContains(response, "Question by question")
+        self.assertContains(response, "Relevance to the review question")
+        self.assertContains(response, "You: Very low")
+        self.assertContains(response, "You: harm reported")
+        self.assertNotContains(response, "harm;")
+        self.assertContains(response, "Not compared, the tool has no tag for these: #, Title.")
+        self.assertNotContains(response, "Which outcome 01-09?")
+
+    def test_record_page_explains_the_lmic_setting(self):
+        page = self.client.get(f"{self.run_url}record/SYN-001/")
+        self.assertContains(page, "Kenya: Lower-middle income, from the text and the model")
+        self.assertContains(page, "Groups that count: Low income, Lower-middle income, Upper-middle income")
+        page = self.client.get(f"{self.run_url}record/SYN-027/")
+        self.assertContains(page, "No country found in the title, abstract or location")

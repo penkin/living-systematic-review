@@ -49,6 +49,8 @@ default_record_type: journal_article
 
 # World Bank income level ids that count as LMIC. Source: reference/worldbank_income.json.
 lmic_income_levels: [LIC, LMC, UMC]
+# Plain words for the World Bank ids, shown on the record page beside each country.
+income_labels: {LIC: Low income, LMC: Lower-middle income, UMC: Upper-middle income, HIC: High income}
 
 # In-batch duplicates. Titles are lower-cased, stripped of these prefixes, of any
 # subtitle after a colon, and of punctuation and digits, then compared. A ratio at or
@@ -249,3 +251,33 @@ reason_override_prefix: "Override:"
 
 # D7 regret figure: hand-sorted HIGH records outside the tool's top N by score.
 regret_top_n: 10
+
+# D7 hand sheet: the reviewers' own scoring, one row per question, one column per
+# record. Each row label maps to the tool field it checks and, per answer, the tool
+# values that count as agreement. An answer not listed here (blank, NA, a stray 0)
+# is not compared. When the tool disagrees, the hand level is worked out with the
+# first listed value. "Which outcome" reads the outcome numbers from the answer.
+hand_sheet:
+  "Is a finished study": {field: lane, values: {"Y": [signal], "N": [separate]}}
+  "Is an intervention": {field: intervention_tested, values: {"Y": ["Yes"], "N": ["No"]}}
+  "Relevant on heat?": {field: answers_question, values: {"Y": ["Yes"], "N": ["No"]}}
+  "LMIC?": {field: lmic_setting, values: {"Y": ["Yes"], "N": ["No"], "M": [Mixed]}}
+  "Which outcome 01-09?": {field: outcome_touched, outcomes: true, values: {"NA": [NONE]}}
+  "SR/Trial": {field: study_design, values: {"Y": [SR, RCT], "N": [non-randomised, cohort, cross-sectional, qualitative, modelling, other]}, labels: {"Y": Systematic review or trial, "N": Other design}}
+  "Equity": {field: equity_level, values: {"Y": [Group included, Results by factor], "N": ["None"]}}
+  "Policy relevant": {field: policy_relevance, values: {"0": ["None"], "N": ["None"], "1": [Some], "2": [Direct]}}
+  "Harm": {field: harm_reported, values: {"Y": ["Yes"], "N": ["No"]}}
+  "new intervention": {field: new_intervention_class, values: {"Y": ["Yes"], "N": ["No"]}}
+  # The reviewers' ranked file: one row per record with the tool's own columns under
+  # other names. `numeric` compares the number as written.
+  "Outcome": {field: outcome_touched, outcomes: true, values: {}}
+  "Total": {field: signal_score, numeric: true}
+  "A Rel": {field: A, numeric: true}
+  "B LMIC": {field: B, numeric: true}
+  "C Equity": {field: C, numeric: true}
+  "D Design": {field: D, numeric: true}
+  "E Policy": {field: E, numeric: true}
+  "F Recency": {field: F, numeric: true}
+  "G CERTAINTY": {field: G, numeric: true}
+  "Review certainty": {field: outcome_certainty, values: {"VERY LOW": [Very low], "LOW": [Low], "MODERATE": [Moderate], "HIGH": [High]}}
+  "Override": {field: override_triggered, values: {"HARM": [harm]}}
