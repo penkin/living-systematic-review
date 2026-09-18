@@ -86,7 +86,7 @@
 <div class="card mt-4 bg-base-100 shadow-sm">
   <div class="card-body">
     <h2 class="card-title">Tags to check</h2>
-    <p class="text-base-content/70">Every tag is a suggestion until you look at it. Agree with it, or change it. The score updates at once.</p>
+    <p class="text-base-content/70">Every tag is a suggestion until you look at it. Agree with it, or change it. The score updates at once. You can change a tag again later.</p>
     <div class="overflow-x-auto">
       <table class="table">
         <tbody>
@@ -99,21 +99,22 @@
             <td class="w-2/5 align-top">
               <div class="flex items-center gap-2">
                 <strong>{{ check.value_label|default:"Not tagged" }}</strong>
-                {% if check.status == "confirmed" %}<span class="badge badge-sm badge-success">{{ check.status_word }}</span>
-                {% elif check.status == "overridden" %}<span class="badge badge-sm badge-info">{{ check.status_word }}</span>
+                {% if check.status == "confirmed" %}<span class="badge badge-sm badge-success">✓ {{ check.status_word }}</span>
+                {% elif check.status == "overridden" %}<span class="badge badge-sm badge-info">✎ {{ check.status_word }}</span>
                 {% else %}<span class="badge badge-sm badge-ghost">{{ check.status_word }}</span>{% endif %}
               </div>
               {% if check.evidence %}<q class="mt-1 block text-sm italic text-base-content/70">{{ check.evidence }}</q>{% endif %}
             </td>
             <td class="whitespace-nowrap align-top">
-              {% if check.status_word == "Suggested" %}
               <div class="flex items-center gap-2">
+                {% if check.status_word == "Suggested" %}
                 <form method="post" action="{% url 'set_tag' run_id row.record_id %}">
                   {% csrf_token %}
                   <input type="hidden" name="field" value="{{ check.field }}">
                   <input type="hidden" name="value" value="{{ check.value }}">
                   <button type="submit" class="btn btn-sm btn-primary w-20">Agree</button>
                 </form>
+                {% endif %}
                 <form method="post" action="{% url 'set_tag' run_id row.record_id %}" class="join">
                   {% csrf_token %}
                   <input type="hidden" name="field" value="{{ check.field }}">
@@ -123,7 +124,6 @@
                   <button type="submit" class="btn btn-sm btn-outline join-item">Change</button>
                 </form>
               </div>
-              {% endif %}
             </td>
           </tr>
         {% endfor %}

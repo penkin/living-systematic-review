@@ -8,7 +8,7 @@ from django.test import Client, TestCase
 from signal_tool import pipeline
 from signal_tool.suggest import MODEL
 from signal_tool.test_suggest import FixtureClient
-from web.models import Record, Result, Run
+from web.models import Record, Result, Run, Tag
 from web.tasks import process_run
 
 # SYN-901 has no fixture, so the fixture client raises and the record stays listed but unscored.
@@ -187,10 +187,24 @@ class RunTests(WebTestCase):
         response = self.client.post(f"{self.run_url}record/SYN-003/tag/", {"field": "harm_reported", "value": "No"})
         page = self.client.get(response["Location"])
         self.assertContains(page, "Agreed")
-        # Four tags still wait for a look; the agreed one has no controls left.
+        # Four tags still wait for a look; the agreed one keeps only its Change control.
         self.assertEqual(page.content.decode().count(">Agree</button>"), 4)
-        self.assertEqual(page.content.decode().count(">Change</button>"), 4)
+        self.assertEqual(page.content.decode().count(">Change</button>"), 5)
         self.assertEqual(self.signals()["SYN-003"]["signal_level"], "MODERATE")
+
+    def test_a_reviewer_can_change_a_tag_after_agreeing(self):
+        base = f"{self.run_url}record/SYN-003/tag/"
+        self.client.post(base, {"field": "harm_reported", "value": "No"})
+        self.client.post(base, {"field": "harm_reported", "value": "Yes"})
+        self.assertEqual(self.signals()["SYN-003"]["signal_level"], "HIGH")
+        self.client.post(base, {"field": "harm_reported", "value": "No"})
+        self.assertEqual(self.signals()["SYN-003"]["signal_level"], "MODERATE")
+        relevance = Tag.objects.get(record__run_id=self.run_id, record__record_id="SYN-003", field="relevance").value
+        self.client.post(base, {"field": "relevance", "value": relevance})
+        page = self.client.get(self.run_url)
+        self.assertContains(page, "Checked by a reviewer")
+        self.assertContains(page, "✓ 1")
+        self.assertContains(page, "✎ 1")
 
     def test_record_type_override_moves_a_record_into_scoring(self):
         self.client.post(
