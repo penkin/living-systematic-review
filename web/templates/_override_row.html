@@ -1,0 +1,16 @@
+<tr>
+  <td><input type="text" name="override_name" value="{{ o.name }}" class="input input-sm w-32" aria-label="Override id"></td>
+  <td><input type="text" name="override_label" value="{{ o.label }}" class="input input-sm w-full min-w-40" aria-label="Label"></td>
+  <td>
+    <select name="override_field" class="select select-sm" aria-label="Field">
+      {% for id, label in field_options %}<option value="{{ id }}"{% if id == o.source_field %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </td>
+  <td><input type="text" name="override_equals" value="{{ o.equals }}" class="input input-sm w-24" aria-label="Equals"></td>
+  <td>
+    <select name="override_action" class="select select-sm" aria-label="Effect">
+      {% for key, effect in override_effects.items %}<option value="{{ key }}"{% if key == o.action %} selected{% endif %}>{{ effect|capfirst }}</option>{% endfor %}
+    </select>
+  </td>
+  <td><button type="button" class="btn btn-ghost btn-xs" onclick="this.closest('tr').remove()" aria-label="Remove override">Remove</button></td>
+</tr>

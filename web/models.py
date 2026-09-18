@@ -12,6 +12,24 @@ class Run(models.Model):
     status = models.TextField(default=PROCESSING)
     error = models.TextField(blank=True)
     handsort = models.TextField(blank=True)
+    # The rules the run was tagged and scored with, as YAML text. Empty means the files on disk,
+    # which is what every run made before these columns existed used.
+    rubric_yaml = models.TextField(blank=True)
+    review_yaml = models.TextField(blank=True)
+
+
+class Rubric(models.Model):
+    """A set of rules and a review built in the rubric builder. The same two YAML texts a Run stores."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.TextField()
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+    rubric_yaml = models.TextField()
+    review_yaml = models.TextField()
+
+    class Meta:
+        ordering = ["-updated"]
 
 
 class Record(models.Model):

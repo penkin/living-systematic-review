@@ -2,6 +2,7 @@ import collections
 import csv
 import io
 
+from django.conf import settings
 from django.db import transaction
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
@@ -10,7 +11,8 @@ from django.urls import reverse
 from signal_tool import evaluate as d7
 from signal_tool import pipeline
 from signal_tool.suggest import OUTCOME_NONE, build_client
-from web.models import Record, Run, Tag
+from web import runconfig
+from web.models import Record, Rubric, Run, Tag
 from web.tasks import config, entry_for, save_result, start_run
 
 # SPEC.md section 9: Covidence, Rayyan and EPPI-Reviewer exports all supply these
@@ -145,29 +147,67 @@ def _rows(run):
     return rows
 
 
+def _summary(run, rows, rules):
+    """The count blocks: records, one per level with its next step, checked, set aside."""
+    signal = [r for r in rows if r["lane"] == "signal"]
+    return {
+        "run": run,
+        "total": len(rows),
+        "tagged": sum(1 for r in rows if not r.get("pending")),
+        "ranked": len(signal),
+        "checked": sum(1 for r in rows if r["agreed"] or r["changed"]),
+        "set_aside": len(rows) - len(signal),
+        "levels": [
+            (level, rules["suggested_action"][level], sum(1 for r in signal if r["signal_level"] == level))
+            for level in reversed(rules["levels"])
+        ],
+    }
+
+
+def run_list(request):
+    runs = []
+    for run in Run.objects.order_by("-created"):
+        review, rules, ref = config(run)
+        runs.append({**_summary(run, _rows(run), rules), "rubric_version": rules["rubric_version"], "review_id": review["review_id"]})
+    # ponytail: one query set per run; an aggregate query when the list grows past a few hundred runs.
+    # The header takes the levels from the files. Every run has the same three, as the form does not rename levels.
+    rules = config()[1]
+    context = {
+        "runs": runs,
+        "levels": [(level, rules["suggested_action"][level]) for level in reversed(rules["levels"])],
+        "polling": any(r["run"].status == "processing" for r in runs),
+    }
+    return render(request, "run_list.html", context)
+
+
 def upload(request):
+    """The run stores the two files as they are, so its pages and confirms keep the rules it was ranked by."""
+    review, rules, _ = config()
+
+    def form(error=None, status=200):
+        return render(request, "upload.html", {"error": error}, status=status)
+
     if request.method != "POST":
-        return render(request, "upload.html")
+        return form()
 
     upload_file = request.FILES.get("cards")
     if upload_file is None:
-        return render(request, "upload.html", {"error": "Choose a CSV file."}, status=400)
+        return form("Choose a CSV file.", 400)
 
     if upload_file.size > MAX_UPLOAD_BYTES:
-        return render(request, "upload.html", {"error": "That file is too large."}, status=400)
+        return form("That file is too large.", 400)
 
     try:
         rows = _read_records(io.StringIO(upload_file.read().decode("utf-8-sig")))
     except (UnicodeDecodeError, csv.Error, ValueError) as exc:
-        return render(request, "upload.html", {"error": str(exc)}, status=400)
+        return form(str(exc), 400)
 
     client = build_client()
     if client is None:
-        error = "Set OPENROUTER_API_KEY in .env to tag records, then restart the server."
-        return render(request, "upload.html", {"error": error}, status=400)
+        return form("Set OPENROUTER_API_KEY in .env to tag records, then restart the server.", 400)
 
     with transaction.atomic():
-        run = Run.objects.create(filename=upload_file.name)
+        run = Run.objects.create(filename=upload_file.name, rubric_yaml=runconfig.dump(rules), review_yaml=runconfig.dump(review))
         Record.objects.bulk_create(
             Record(run=run, **{f: (row.get(f) or "").strip() for f in Record.INPUT_FIELDS}) for row in rows
         )
@@ -175,9 +215,68 @@ def upload(request):
     return redirect("run_detail", run_id=run.pk)
 
 
+def run_settings(request, run_id, name):
+    """The rules or the review exactly as this run used them. An old run without stored settings shows the file on disk."""
+    run = get_object_or_404(Run, pk=run_id)
+    text = getattr(run, f"{name}_yaml") or (settings.RUBRIC_CONFIG if name == "rubric" else settings.REVIEW_CONFIG).read_text()
+    return HttpResponse(text, content_type="text/plain; charset=utf-8")
+
+
+def rubric_list(request):
+    rubrics = []
+    for rubric in Rubric.objects.all():
+        review, rules, _ = config(rubric)
+        rubrics.append({"rubric": rubric, "version": rules["rubric_version"], "review_id": review["review_id"], "criteria": len(rules["criteria"])})
+    return render(request, "rubric_list.html", {"rubrics": rubrics})
+
+
+def _new_rubric(name, review, rules):
+    return Rubric.objects.create(name=name, rubric_yaml=runconfig.dump(rules), review_yaml=runconfig.dump(review))
+
+
+def rubric_new(request):
+    """A rubric that starts as the two files on disk hold them."""
+    if request.method != "POST":
+        return redirect("rubric_list")
+    review, rules, _ = config()
+    return redirect("rubric_edit", rubric_id=_new_rubric(request.POST.get("name", "").strip() or "New rubric", review, rules).pk)
+
+
+def rubric_copy(request, rubric_id):
+    source = get_object_or_404(Rubric, pk=rubric_id)
+    if request.method != "POST":
+        return redirect("rubric_edit", rubric_id=source.pk)
+    review, rules, _ = config(source)
+    return redirect("rubric_edit", rubric_id=_new_rubric(f"Copy of {source.name}", review, rules).pk)
+
+
+def rubric_edit(request, rubric_id):
+    """The builder. Every save writes the whole rubric back as YAML; a bad row shows the form again with the error."""
+    rubric = get_object_or_404(Rubric, pk=rubric_id)
+    review, rules, ref = config(rubric)
+    error = None
+    if request.method == "POST":
+        try:
+            review, rules = runconfig.from_post(request.POST, review, rules)
+        except ValueError as exc:
+            error = str(exc)
+        else:
+            rubric.name = request.POST.get("rubric_name", "").strip() or rubric.name
+            rubric.rubric_yaml, rubric.review_yaml = runconfig.dump(rules), runconfig.dump(review)
+            rubric.save()
+            return redirect(reverse("rubric_edit", kwargs={"rubric_id": rubric.pk}) + "?saved=1")
+    context = {**runconfig.form_context(review, rules, ref), "rubric": rubric, "error": error, "saved": "saved" in request.GET}
+    return render(request, "rubric_detail.html", context, status=400 if error else 200)
+
+
+def rubric_file(request, rubric_id, name):
+    rubric = get_object_or_404(Rubric, pk=rubric_id)
+    return HttpResponse(getattr(rubric, f"{name}_yaml"), content_type="text/plain; charset=utf-8")
+
+
 def run_detail(request, run_id):
     run = get_object_or_404(Run, pk=run_id)
-    review, rules, ref = config()
+    review, rules, ref = config(run)
     rows = _rows(run)
 
     # HIGH first, then by score. Unscored rows sit last but stay listed; rows still being tagged sit below them.
@@ -194,16 +293,9 @@ def run_detail(request, run_id):
         "run_detail.html",
         {
             "run_id": run_id,
-            "run": run,
-            "total": len(rows),
-            "tagged": sum(1 for r in rows if not r.get("pending")),
-            "checked": sum(1 for r in rows if r["agreed"] or r["changed"]),
+            "counts": _summary(run, rows, rules),
             "signal": signal,
             "separate": [r for r in rows if r["lane"] == "separate"],
-            "levels": [
-                (level, rules["suggested_action"][level], sum(1 for r in signal if r["signal_level"] == level))
-                for level in reversed(rules["levels"])
-            ],
             "low_level": rules["levels"][0],
             "outcomes": [dict(o, points=uncertainty["scores"].get(o["certainty"], uncertainty["default"])) for o in review["outcomes"]],
             "uncertainty_max": uncertainty["max"],
@@ -215,8 +307,8 @@ def run_detail(request, run_id):
 
 def record_detail(request, run_id, record_id):
     """One record: its score piece by piece, the level steps, and the tags to check."""
-    record = get_object_or_404(Record.objects.select_related("result"), run_id=run_id, record_id=record_id)
-    review, rules, ref = config()
+    record = get_object_or_404(Record.objects.select_related("result", "run"), run_id=run_id, record_id=record_id)
+    review, rules, ref = config(record.run)
     tags = entry_for(record)["tags"]
     result = getattr(record, "result", None)
     if result is None:
@@ -290,8 +382,8 @@ def set_tag(request, run_id, record_id):
     """Confirm or override one of the five human-checked tags, then re-run stage 3 for this record only."""
     if request.method != "POST":
         return HttpResponseBadRequest("POST only.")
-    get_object_or_404(Run, pk=run_id)
-    review, rules, ref = config()
+    run = get_object_or_404(Run, pk=run_id)
+    review, rules, ref = config(run)
     field, value = request.POST.get("field"), request.POST.get("value")
     cell = Tag.objects.filter(record__run_id=run_id, record__record_id=record_id, field=field).select_related("record").first()
     if cell is None or field not in pipeline.CONFIRMABLE:
@@ -336,7 +428,7 @@ def evaluate(request, run_id):
                 run.save(update_fields=["handsort"])
                 return redirect("evaluate", run_id=run_id)
 
-    review, rules, ref = config()
+    review, rules, ref = config(run)
     rows = [r for r in _rows(run) if not r.get("pending")]
     equity = [(GROUP_LABELS.get(k, k), groups) for k, groups in d7.equity(rows, rules).items()]
     context = {"run_id": run_id, "error": error, "equity": equity, "top_n": rules["regret_top_n"]}

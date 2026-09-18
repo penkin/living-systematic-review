@@ -18,10 +18,11 @@ from signal_tool.tagging import load_rules, tag
 from web.models import Result, Run, Tag
 
 
-def config():
-    with open(settings.REVIEW_CONFIG, encoding="utf-8") as handle:
-        review = yaml.safe_load(handle)
-    return review, load_rules(settings.RUBRIC_CONFIG), load_reference(settings.REFERENCE_DIR)
+def config(run=None):
+    """The review, the rules and the reference data for one run. A run without stored settings uses the files on disk."""
+    review = yaml.safe_load(run.review_yaml) if run and run.review_yaml else load_rules(settings.REVIEW_CONFIG)
+    rules = yaml.safe_load(run.rubric_yaml) if run and run.rubric_yaml else load_rules(settings.RUBRIC_CONFIG)
+    return review, rules, load_reference(settings.REFERENCE_DIR)
 
 
 def start_run(run_id, client):
@@ -32,7 +33,7 @@ def start_run(run_id, client):
 def process_run(run_id, client):
     run = Run.objects.get(pk=run_id)
     try:
-        review, rules, ref = config()
+        review, rules, ref = config(run)
         records = list(run.records.all())
         cards = tag([record.as_dict() for record in records], rules, review, ref)
         Tag.objects.bulk_create(

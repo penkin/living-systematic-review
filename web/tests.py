@@ -1,16 +1,20 @@
 import base64
+import collections
 import csv
 import io
+import re
+from html.parser import HTMLParser
 from unittest.mock import patch
 
+import yaml
 from django.conf import settings
 from django.test import Client, TestCase, override_settings
 
 from signal_tool import pipeline
 from signal_tool.suggest import MODEL
 from signal_tool.test_suggest import FixtureClient
-from web.models import Record, Result, Run, Tag
-from web.tasks import process_run
+from web.models import Record, Result, Rubric, Run, Tag
+from web.tasks import config, process_run
 
 # SYN-901 has no fixture, so the fixture client raises and the record stays listed but unscored.
 GOOD = b'record_id,title,abstract\nSYN-901,Heat and preterm birth,We followed 2340 pregnancies.\n'
@@ -30,7 +34,7 @@ class WebTestCase(TestCase):
         self.client = Client()
 
     def post(self, body):
-        return self.client.post("/", {"cards": io.BytesIO(body)}, follow=True)
+        return self.client.post("/new/", {"cards": io.BytesIO(body)}, follow=True)
 
 
 class UploadTests(WebTestCase):
@@ -120,7 +124,7 @@ class RunTests(WebTestCase):
     def setUp(self):
         super().setUp()
         with (settings.BASE_DIR / "cards.csv").open("rb") as handle:
-            response = self.client.post("/", {"cards": handle})
+            response = self.client.post("/new/", {"cards": handle})
         self.run_url = response["Location"]
         self.run_id = self.run_url.rstrip("/").rsplit("/", 1)[1]
 
@@ -301,3 +305,163 @@ class PasswordGateTests(TestCase):
     @override_settings(APP_PASSWORD="")
     def test_no_password_means_no_gate(self):
         self.assertEqual(self.client.get("/").status_code, 200)
+
+
+class RunListTests(WebTestCase):
+    def rank(self):
+        with (settings.BASE_DIR / "cards.csv").open("rb") as handle:
+            response = self.client.post("/new/", {"cards": handle})
+        return Run.objects.get(pk=response["Location"].rstrip("/").rsplit("/", 1)[1])
+
+    def test_empty_settings_fall_back_to_the_files(self):
+        run = Run.objects.create(filename="old.csv")
+        self.assertEqual(config(run)[:2], config()[:2])
+        self.assertEqual(self.client.get(f"/run/{run.pk}/rubric.yaml").content.decode(), settings.RUBRIC_CONFIG.read_text())
+
+    def test_run_list_shows_every_run_with_its_counts(self):
+        first = self.rank()
+        second = self.rank()
+        page = self.client.get("/")
+        self.assertContains(page, f'href="/run/{first.pk}/"')
+        self.assertContains(page, f'href="/run/{second.pk}/"')
+        self.assertEqual(self.counts(page, first), ["34", "13", "10", "6", "0", "5"])
+        self.assertContains(page, "v0 · ")
+        self.assertContains(page, 'href="/new/"')
+        self.assertContains(self.client.get(f"/run/{first.pk}/rubric.yaml"), "rubric_version: v0")
+
+    @staticmethod
+    def counts(page, run):
+        """The number cells of one row of the run list: records, one per level, checked, set aside."""
+        html = page.content.decode()
+        row = html[html.index(f'id="run-{run.pk}"') :].split("</tr>", 1)[0]
+        return re.findall(r'<td class="text-center">(\d+)</td>', row)
+
+
+class FormParser(HTMLParser):
+    """The inputs, selects and textareas of a page as the browser posts them, with the <template> rows left out."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.data = collections.defaultdict(list)
+        self.templates = 0
+        self.select = self.textarea = None
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        if tag == "template":
+            self.templates += 1
+        if self.templates or not a.get("name", tag == "option"):
+            return
+        if tag == "input":
+            kind = a.get("type", "text")
+            if kind in ("submit", "button", "file") or (kind in ("checkbox", "radio") and "checked" not in a):
+                return
+            self.data[a["name"]].append(a.get("value") or "")
+        elif tag == "select":
+            self.select = (a["name"], "multiple" in a, [], [])
+        elif tag == "option" and self.select:
+            self.select[2].append(a.get("value", ""))
+            if "selected" in a:
+                self.select[3].append(a.get("value", ""))
+        elif tag == "textarea":
+            self.textarea = a["name"]
+            self.data[a["name"]].append("")
+
+    def handle_endtag(self, tag):
+        if tag == "template":
+            self.templates -= 1
+        elif tag == "select" and self.select:
+            name, multiple, options, selected = self.select
+            self.data[name].extend(selected or ([] if multiple else options[:1]))
+            self.select = None
+        elif tag == "textarea":
+            self.textarea = None
+
+    def handle_data(self, data):
+        if self.textarea and not self.templates:
+            self.data[self.textarea][-1] += data
+
+
+class RubricTests(TestCase):
+    def new(self):
+        response = self.client.post("/rubrics/new/", follow=True)
+        return Rubric.objects.get(), response
+
+    @staticmethod
+    def form(response):
+        parser = FormParser()
+        parser.feed(response.content.decode())
+        return parser.data
+
+    def save(self, rubric, data):
+        response = self.client.post(f"/rubrics/{rubric.pk}/", data, follow=True)
+        rubric.refresh_from_db()
+        return response, yaml.safe_load(rubric.rubric_yaml), yaml.safe_load(rubric.review_yaml)
+
+    def test_a_new_rubric_holds_the_files(self):
+        rubric, response = self.new()
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "New rubric")
+        review, rules, _ = config()
+        self.assertEqual(yaml.safe_load(rubric.rubric_yaml), rules)
+        self.assertEqual(yaml.safe_load(rubric.review_yaml), review)
+        self.assertEqual(self.client.get(f"/rubrics/{rubric.pk}/rubric.yaml").content.decode(), rubric.rubric_yaml)
+
+    def test_saving_the_form_unchanged_builds_the_same_rubric(self):
+        rubric, response = self.new()
+        response, rules, review = self.save(rubric, self.form(response))
+        self.assertContains(response, "Saved.")
+        file_review, file_rules, _ = config()
+        self.assertEqual(rules, file_rules)
+        # The file ends the question with a newline; the form box strips it.
+        file_review["review_question"] = file_review["review_question"].strip()
+        self.assertEqual(review, file_review)
+
+    def test_a_rubric_for_another_review(self):
+        rubric, response = self.new()
+        data = self.form(response)
+        data["rubric_name"] = ["Cost review"]
+        data["crit_id"][data["crit_id"].index("D")] = ""
+        for column, value in zip(("id", "label", "values", "prompt", "confirmable"), ("cost_reported", "Cost reported", "Yes, No", "Yes if the record reports a cost.", "yes")):
+            data[f"field_{column}"].append(value)
+        for column, value in zip(("index", "id", "name", "help", "max", "default"), ("9", "H", "Cost", "One point when a cost is reported.", "1", "0")):
+            data[f"crit_{column}"].append(value)
+        data.update(score_9_field=["cost_reported"], score_9_value=["Yes"], score_9_points=["1"])
+        data.update(override_name=["cost"], override_label=[""], override_field=["cost_reported"], override_equals=["Yes"], override_action=["raise"])
+        response, rules, review = self.save(rubric, data)
+        self.assertContains(response, "Saved.")
+        self.assertContains(response, '<option value="cost_reported" selected>')
+        self.assertEqual(rubric.name, "Cost review")
+        self.assertNotIn("D", rules["criteria"])
+        self.assertEqual(
+            rules["criteria"]["H"],
+            {"name": "Cost", "help": "One point when a cost is reported.", "max": 1, "source_field": "cost_reported", "default": 0, "scores": {"Yes": 1}},
+        )
+        self.assertEqual(rules["overrides"], [{"name": "cost", "label": "cost", "source_field": "cost_reported", "equals": "Yes", "action": "raise"}])
+        self.assertEqual(
+            rules["fields"][-1],
+            {"id": "cost_reported", "source": "model", "label": "Cost reported", "values": ["Yes", "No"], "prompt": "Yes if the record reports a cost.", "confirmable": True},
+        )
+        self.assertEqual(rules["criteria"]["A"]["parts"][0]["scores"], {"Yes": 1})
+        self.assertEqual(rules["criteria"]["F"]["scores"], {1: 1})
+
+    def test_a_bad_row_shows_the_error_and_keeps_the_rubric(self):
+        rubric, response = self.new()
+        data = self.form(response)
+        data["override_field"][0] = "nothing"
+        response = self.client.post(f"/rubrics/{rubric.pk}/", data)
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "not in the list: nothing", status_code=400)
+        data = self.form(self.client.get(f"/rubrics/{rubric.pk}/"))
+        del data["score_2_field"], data["score_2_value"], data["score_2_points"]
+        response = self.client.post(f"/rubrics/{rubric.pk}/", data)
+        self.assertContains(response, "needs at least one scored value", status_code=400)
+        self.assertEqual(yaml.safe_load(rubric.rubric_yaml), config()[1])
+
+    def test_the_list_shows_every_rubric_and_copies_one(self):
+        rubric, _ = self.new()
+        self.client.post(f"/rubrics/{rubric.pk}/copy/", follow=True)
+        page = self.client.get("/rubrics/")
+        self.assertContains(page, "Copy of New rubric")
+        self.assertEqual(Rubric.objects.count(), 2)
+        self.assertContains(self.client.get("/"), 'href="/rubrics/"')

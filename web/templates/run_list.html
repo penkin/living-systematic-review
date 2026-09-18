@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block main_attrs %}{% if polling %} data-poll{% endif %}{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-end justify-between gap-3">
+  <div>
+    <h1 class="text-2xl font-bold">Runs</h1>
+    <p class="mt-1 text-base-content/70">Every file ranked so far, newest first, with the rules it was ranked by. Open a run to read its list and check its tags.</p>
+  </div>
+  <div class="flex gap-2">
+    <a class="btn btn-ghost" href="{% url 'rubric_list' %}">Rubrics</a>
+    <a class="btn btn-primary" href="{% url 'upload' %}">Rank a new file</a>
+  </div>
+</div>
+
+<div class="card mt-4 bg-base-100 shadow-sm">
+  <div class="overflow-x-auto">
+    <table class="table table-zebra">
+      <thead>
+        <tr>
+          <th>File</th>
+          <th>Rules</th>
+          <th class="text-center">Records</th>
+          {% for level, action in levels %}<th class="text-center">{% include "_badge.html" %}</th>{% endfor %}
+          <th class="text-center">Checked</th>
+          <th class="text-center">Set aside</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for r in runs %}
+        <tr id="run-{{ r.run.pk }}">
+          <td class="min-w-48">
+            <a class="link-hover font-semibold" href="{% url 'run_detail' r.run.pk %}">{{ r.run.filename }}</a>
+            <div class="mt-1 text-sm text-base-content/60">{{ r.run.created|date:"j M Y, H:i" }}
+              {% if r.run.status == "processing" %}· <span class="loading loading-spinner loading-xs align-middle"></span> tagging {{ r.tagged }} of {{ r.total }}
+              {% elif r.run.status == "failed" %}· <span class="text-error">stopped: {{ r.run.error }}</span>{% endif %}
+            </div>
+          </td>
+          <td class="whitespace-nowrap text-sm text-base-content/70">{{ r.rubric_version }} · {{ r.review_id }}</td>
+          <td class="text-center">{{ r.total }}</td>
+          {% for level, action, count in r.levels %}<td class="text-center">{{ count }}</td>{% endfor %}
+          <td class="text-center">{{ r.checked }}</td>
+          <td class="text-center">{{ r.set_aside }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="{{ levels|length|add:5 }}" class="text-base-content/70">No file has been ranked yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

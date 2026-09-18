@@ -1,0 +1,29 @@
+<div>
+  <h3 class="font-semibold">Open questions</h3>
+  <div class="mt-2 grid gap-3 sm:grid-cols-2">
+    <label class="flex items-center gap-2"><input type="checkbox" name="promote_large" value="1"{% if switches.promote_large_studies_on_moderate %} checked{% endif %} class="checkbox"> Promote a large study on a moderate-certainty outcome to High</label>
+    <label class="flex flex-col gap-1"><span>A large study has at least this many people</span><input type="number" name="large_study_n" value="{{ switches.large_study_n }}" min="0" required class="input"></label>
+    <label class="flex flex-col gap-1"><span>A record outside the review's regions is capped at</span>
+      <select name="out_of_region_cap" class="select">
+        {% for level in level_ids %}<option value="{{ level }}"{% if level == switches.out_of_region_cap %} selected{% endif %}>{{ level|lower|capfirst }}</option>{% endfor %}
+        <option value="none"{% if switches.out_of_region_cap == "none" %} selected{% endif %}>No cap</option>
+      </select>
+    </label>
+    <label class="flex flex-col gap-1"><span>A record on an outcome outside the review is</span>
+      <select name="out_of_scope_handling" class="select">
+        <option value="surface"{% if switches.out_of_scope_handling == "surface" %} selected{% endif %}>Shown with a scope question</option>
+        <option value="suppress"{% if switches.out_of_scope_handling == "suppress" %} selected{% endif %}>Sent to Low</option>
+      </select>
+    </label>
+  </div>
+</div>
+
+<div class="grid gap-3 sm:grid-cols-2">
+  <div>
+    <h3 class="font-semibold">Income groups that count as low or middle income</h3>
+    <div class="mt-2 flex flex-col gap-1">
+      {% for key, label, on in income_groups %}<label class="flex items-center gap-2"><input type="checkbox" name="lmic_{{ key }}" value="1"{% if on %} checked{% endif %} class="checkbox"> {{ label }}</label>{% endfor %}
+    </div>
+  </div>
+  <label class="flex flex-col gap-1"><span class="font-semibold">Regret check looks at the top</span><input type="number" name="regret_top_n" value="{{ regret_top_n }}" min="1" required class="input sm:w-32"><span class="text-sm text-base-content/60">A hand-sorted High outside this many is counted as a miss on the checks page.</span></label>
+</div>

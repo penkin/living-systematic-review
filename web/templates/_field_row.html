@@ -1,0 +1,20 @@
+<tr>
+  <td><input type="text" name="field_id" value="{{ f.id }}" class="input input-sm w-40" aria-label="Field id"{% if f and not f.editable %} readonly{% endif %}></td>
+  <td><input type="text" name="field_label" value="{{ f.label }}" class="input input-sm w-full min-w-40" aria-label="Label"></td>
+  {% if f and not f.editable %}
+  <td><input type="text" name="field_values" value="{{ f.values_text }}" class="input input-sm w-full min-w-48" aria-label="Values" readonly></td>
+  <td class="text-sm text-base-content/60"><input type="hidden" name="field_prompt" value="">{% if f.source == "review" %}The outcomes of the review{% else %}Set by the tool, not asked of the model{% endif %}</td>
+  <td><input type="hidden" name="field_confirmable" value="{% if f.confirmable %}yes{% else %}no{% endif %}">{% if f.confirmable %}Yes{% else %}No{% endif %}</td>
+  <td></td>
+  {% else %}
+  <td><input type="text" name="field_values" value="{{ f.values_text }}" class="input input-sm w-full min-w-48" aria-label="Values" placeholder="Empty for free text or a number"></td>
+  <td><input type="text" name="field_prompt" value="{{ f.prompt }}" class="input input-sm w-full min-w-64" aria-label="What the model is asked"></td>
+  <td>
+    <select name="field_confirmable" class="select select-sm" aria-label="Confirmable">
+      <option value="no"{% if not f.confirmable %} selected{% endif %}>No</option>
+      <option value="yes"{% if f.confirmable %} selected{% endif %}>Yes</option>
+    </select>
+  </td>
+  <td><button type="button" class="btn btn-ghost btn-xs" onclick="this.closest('tr').remove()" aria-label="Remove field">Remove</button></td>
+  {% endif %}
+</tr>
