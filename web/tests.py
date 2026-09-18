@@ -405,7 +405,6 @@ class RubricTests(TestCase):
         review, rules, _ = config()
         self.assertEqual(yaml.safe_load(rubric.rubric_yaml), rules)
         self.assertEqual(yaml.safe_load(rubric.review_yaml), review)
-        self.assertEqual(self.client.get(f"/rubrics/{rubric.pk}/rubric.yaml").content.decode(), rubric.rubric_yaml)
 
     def test_saving_the_form_unchanged_builds_the_same_rubric(self):
         rubric, response = self.new()
@@ -422,7 +421,7 @@ class RubricTests(TestCase):
         data = self.form(response)
         data["rubric_name"] = ["Cost review"]
         data["crit_id"][data["crit_id"].index("D")] = ""
-        for column, value in zip(("id", "label", "values", "prompt", "confirmable"), ("cost_reported", "Cost reported", "Yes, No", "Yes if the record reports a cost.", "yes")):
+        for column, value in zip(("id", "label", "values", "prompt", "confirmable", "type"), ("cost_reported", "Cost reported", "Yes, No", "Yes if the record reports a cost.", "yes", "")):
             data[f"field_{column}"].append(value)
         for column, value in zip(("index", "id", "name", "help", "max", "default"), ("9", "H", "Cost", "One point when a cost is reported.", "1", "0")):
             data[f"crit_{column}"].append(value)
@@ -431,6 +430,8 @@ class RubricTests(TestCase):
         response, rules, review = self.save(rubric, data)
         self.assertContains(response, "Saved.")
         self.assertContains(response, '<option value="cost_reported" selected>')
+        self.assertContains(response, "- cost_reported: Yes if the record reports a cost.")
+        self.assertContains(response, "&quot;cost_reported&quot;: {")
         self.assertEqual(rubric.name, "Cost review")
         self.assertNotIn("D", rules["criteria"])
         self.assertEqual(

@@ -64,7 +64,7 @@ The tool suggests.
   `run/<uuid>/signals.csv` the download, `run/<uuid>/evaluate/` the D7 checks,
   `run/<uuid>/rubric.yaml` and `run/<uuid>/review.yaml` the settings the run used,
   `rubrics/` the rubric builder: a table of saved rubrics, `rubrics/<uuid>/` the form that
-  edits one, `rubrics/<uuid>/rubric.yaml` and `review.yaml` its two files.
+  edits one.
   - `models.py` — five tables. `Run` (uuid, status `processing`, `done` or `failed`,
     `error`, `handsort` text, and `rubric_yaml` and `review_yaml`, the settings the run
     was ranked by as YAML text; empty means the files on disk, which is what every run
@@ -93,7 +93,8 @@ The tool suggests.
     score rows of field, value, points; rows over one field give `source_field` and
     `scores`, rows over several give `parts`) and the overrides (id, label, field,
     equals, effect). A value is typed by the field's `values` list, so `recency_score`
-    1 stays a number. Built-in fields (`source: rules`) only take a label. Not on either
+    1 stays a number. A model field also has an answer `type`: one value, `list` or
+    `number`. Built-in fields (`source: rules`) only take a label. Not on the
     form: record types, duplicates, level names, reason templates, `hand_sheet`,
     `allowed_values`. The `FormParser` in `tests.py` posts a rendered form back
     unchanged and checks the result equals the files.
@@ -104,6 +105,10 @@ The tool suggests.
     and income resolver. `reference.py` — the one-off World Bank download.
   - `suggest.py` — stage 2, `suggest(record, review, client)`: the model call and the
     closed-list validation. `build_client()` returns None without `OPENROUTER_API_KEY`.
+    `compile_prompt(review, rules)` builds the system text and the answer schema from the
+    rubric's `fields`; the builder page shows both under "What the model is asked". The
+    live call still uses `build_prompt` and `output_schema`, the older nested shape, until
+    `validate` reads the fields too.
   - `scoring.py` — stage 3, `score_record(tags, review, rules)`.
   - `pipeline.py` — `tags_for()` turns a tagged record and its model response into
     the tag entry, `build_row()` scores one record into a `signals.csv` row,
@@ -112,9 +117,9 @@ The tool suggests.
     `cards.csv`, used as test fixtures. `FixtureClient` in `test_suggest.py` serves
     them by `record_id`.
 - `rubric.yaml` — every rule: record types and lanes, `fields` (every field a criterion
-  or override can read, with its source, closed list, model prompt sentence, labels and
-  whether a reviewer confirms it; today data for the builder only, the pipeline still
-  names its fields in `suggest.py`, `pipeline.py`, `scoring.py` and `views.py`), criteria
+  or override can read, with its source, closed list, answer type, model prompt sentence,
+  labels and whether a reviewer confirms it; today data for the builder and its compiled
+  prompt only, the pipeline still names its fields in `suggest.py`, `pipeline.py`, `scoring.py` and `views.py`), criteria
   A–G, thresholds, overrides, switches, reason templates, suggested actions, `regret_top_n`.
 - `review.yaml` — the review as data: outcomes with certainty, closed lists, regions.
 - `reference/` — `iso3166_regions.csv`, `worldbank_income.json`, and `METADATA.json`

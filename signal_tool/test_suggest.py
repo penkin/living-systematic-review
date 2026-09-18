@@ -5,10 +5,11 @@ from pathlib import Path
 
 import yaml
 
-from signal_tool.suggest import EVIDENCE_FIELDS, output_schema, parse_json, suggest, validate
+from signal_tool.suggest import EVIDENCE_FIELDS, compile_prompt, output_schema, parse_json, suggest, validate
 
 ROOT = Path(__file__).resolve().parents[1]
 REVIEW = yaml.safe_load((ROOT / "review.yaml").read_text(encoding="utf-8"))
+RULES = yaml.safe_load((ROOT / "rubric.yaml").read_text(encoding="utf-8"))
 FIXTURES = Path(__file__).resolve().parent / "testdata" / "model"
 
 
@@ -115,6 +116,19 @@ class ValidateTests(unittest.TestCase):
     def test_parse_json_strips_fences_and_preamble(self):
         self.assertEqual(parse_json('Here you go:\n```json\n{"a": 1}\n```'), {"a": 1})
         self.assertEqual(parse_json('{"a": 1}'), {"a": 1})
+
+    def test_compile_prompt_asks_for_every_model_field(self):
+        system, schema = compile_prompt(REVIEW, RULES)
+        asked = [f["id"] for f in RULES["fields"] if f["source"] in ("model", "review")]
+        self.assertEqual(schema["required"], asked + ["evidence"])
+        self.assertEqual(list(schema["properties"]["evidence"]["properties"]), asked)
+        self.assertEqual(schema["properties"]["outcome_touched"]["enum"][-1], "NONE")
+        self.assertEqual(schema["properties"]["equity_factors"]["items"]["enum"], REVIEW["allowed_values"]["progress_plus"])
+        self.assertEqual(schema["properties"]["countries_iso3"], {"type": "array", "items": {"type": "string"}})
+        self.assertEqual(schema["properties"]["sample_size"], {"type": ["integer", "null"]})
+        self.assertIn(REVIEW["review_question"].strip(), system)
+        self.assertIn("- harm_reported: Yes only if an adverse event or harm is a reported finding.", system)
+        self.assertNotIn("record_type", system)
 
     def test_schema_enumerates_the_review_lists(self):
         schema = output_schema(REVIEW)

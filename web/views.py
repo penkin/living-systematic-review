@@ -1,6 +1,7 @@
 import collections
 import csv
 import io
+import json
 
 from django.conf import settings
 from django.db import transaction
@@ -10,7 +11,7 @@ from django.urls import reverse
 
 from signal_tool import evaluate as d7
 from signal_tool import pipeline
-from signal_tool.suggest import OUTCOME_NONE, build_client
+from signal_tool.suggest import OUTCOME_NONE, build_client, compile_prompt
 from web import runconfig
 from web.models import Record, Rubric, Run, Tag
 from web.tasks import config, entry_for, save_result, start_run
@@ -265,13 +266,17 @@ def rubric_edit(request, rubric_id):
             rubric.rubric_yaml, rubric.review_yaml = runconfig.dump(rules), runconfig.dump(review)
             rubric.save()
             return redirect(reverse("rubric_edit", kwargs={"rubric_id": rubric.pk}) + "?saved=1")
-    context = {**runconfig.form_context(review, rules, ref), "rubric": rubric, "error": error, "saved": "saved" in request.GET}
+    prompt, schema = compile_prompt(review, rules)
+    context = {
+        **runconfig.form_context(review, rules, ref),
+        "rubric": rubric,
+        "error": error,
+        "saved": "saved" in request.GET,
+        "prompt": prompt,
+        "schema": json.dumps(schema, indent=2),
+    }
     return render(request, "rubric_detail.html", context, status=400 if error else 200)
 
-
-def rubric_file(request, rubric_id, name):
-    rubric = get_object_or_404(Rubric, pk=rubric_id)
-    return HttpResponse(getattr(rubric, f"{name}_yaml"), content_type="text/plain; charset=utf-8")
 
 
 def run_detail(request, run_id):

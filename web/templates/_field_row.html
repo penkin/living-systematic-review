@@ -3,11 +3,17 @@
   <td><input type="text" name="field_label" value="{{ f.label }}" class="input input-sm w-full min-w-40" aria-label="Label"></td>
   {% if f and not f.editable %}
   <td><input type="text" name="field_values" value="{{ f.values_text }}" class="input input-sm w-full min-w-48" aria-label="Values" readonly></td>
+  <td class="text-sm text-base-content/60"><input type="hidden" name="field_type" value="">One value</td>
   <td class="text-sm text-base-content/60"><input type="hidden" name="field_prompt" value="">{% if f.source == "review" %}The outcomes of the review{% else %}Set by the tool, not asked of the model{% endif %}</td>
   <td><input type="hidden" name="field_confirmable" value="{% if f.confirmable %}yes{% else %}no{% endif %}">{% if f.confirmable %}Yes{% else %}No{% endif %}</td>
   <td></td>
   {% else %}
   <td><input type="text" name="field_values" value="{{ f.values_text }}" class="input input-sm w-full min-w-48" aria-label="Values" placeholder="Empty for free text or a number"></td>
+  <td>
+    <select name="field_type" class="select select-sm" aria-label="Answer type">
+      {% for key, label in field_types.items %}<option value="{{ key }}"{% if f.type|default:"" == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </td>
   <td><input type="text" name="field_prompt" value="{{ f.prompt }}" class="input input-sm w-full min-w-64" aria-label="What the model is asked"></td>
   <td>
     <select name="field_confirmable" class="select select-sm" aria-label="Confirmable">

@@ -13,8 +13,6 @@
       <label class="flex flex-col gap-1"><span class="font-medium">Rules version</span><input type="text" name="rubric_version" value="{{ rubric_version }}" class="input w-32"></label>
     </div>
     <div class="flex flex-wrap items-center gap-2">
-      <a class="btn btn-ghost btn-sm" href="{% url 'rubric_rubric' rubric.pk %}">rubric.yaml</a>
-      <a class="btn btn-ghost btn-sm" href="{% url 'rubric_review' rubric.pk %}">review.yaml</a>
       <button type="submit" class="btn btn-primary">Save</button>
     </div>
   </div>
@@ -27,7 +25,7 @@
     <div class="collapse-content flex flex-col gap-2">
       <div class="overflow-x-auto">
         <table class="table table-sm">
-          <thead><tr><th>Id</th><th>Label</th><th>Values, comma separated</th><th>What the model is asked</th><th>Confirmable</th><th></th></tr></thead>
+          <thead><tr><th>Id</th><th>Label</th><th>Values, comma separated</th><th>Answer</th><th>What the model is asked</th><th>Confirmable</th><th></th></tr></thead>
           <tbody id="fields">
             {% for f in fields %}{% include "_field_row.html" %}{% endfor %}
           </tbody>
@@ -36,6 +34,16 @@
       <template>{% include "_field_row.html" with f=None %}</template>
       <button type="button" class="btn btn-sm self-start" onclick="addRow(this, '#fields')">Add a field</button>
       <p class="text-sm text-base-content/60">A confirmable field gets an Agree button and a Change to select on the record page. Save after adding a field, so the criteria and overrides below can pick it.</p>
+    </div>
+  </details>
+
+  <details class="collapse collapse-arrow bg-base-100 shadow-sm">
+    <summary class="collapse-title font-medium">What the model is asked <span class="text-sm font-normal text-base-content/60">The instructions and the answer shape built from the fields above. Save to refresh them.</span></summary>
+    <div class="collapse-content flex flex-col gap-2">
+      <h3 class="font-medium">Instructions</h3>
+      <pre class="whitespace-pre-wrap rounded-box bg-base-200 p-3 text-sm">{{ prompt }}</pre>
+      <h3 class="font-medium">Answer shape</h3>
+      <pre class="overflow-x-auto rounded-box bg-base-200 p-3 text-xs">{{ schema }}</pre>
     </div>
   </details>
 

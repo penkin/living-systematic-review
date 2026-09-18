@@ -129,6 +129,7 @@ fields:
     label: Equity factors
     source: model
     values: [Place of residence, Race/ethnicity/culture/language, Occupation, Gender/sex, Religion, Education, Socioeconomic status, Social capital, Age, Disability, Other]
+    type: list
     prompt: The PROGRESS-Plus factors the results are broken down by.
   - id: harm_reported
     label: Harm reported
@@ -154,10 +155,12 @@ fields:
   - id: countries_iso3
     label: Countries
     source: model
+    type: list
     prompt: ISO 3166 alpha-3 codes of the study countries.
   - id: sample_size
     label: Study size
     source: model
+    type: number
     prompt: Participants or units as an integer, or null.
   - id: lmic_setting
     label: Low- or middle-income setting

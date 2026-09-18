@@ -94,27 +94,60 @@ def output_schema(review):
             "policy_relevance": enum("policy_relevance"),
             "countries_iso3": {"type": "array", "items": {"type": "string"}},
             "sample_size": {"type": ["integer", "null"]},
-            "evidence": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": list(EVIDENCE_FIELDS),
-                "properties": {
-                    f: {
-                        "type": "string",
-                        "description": f"A short phrase copied verbatim from the title or abstract that supports {f}, "
-                        "or an empty string. Never repeat the value itself.",
-                    }
-                    for f in EVIDENCE_FIELDS
-                },
-            },
+            "evidence": _evidence(EVIDENCE_FIELDS),
         },
     }
 
 
-def build_prompt(record, review):
-    """Return (system, user) text. The review supplies every list; nothing is hardcoded."""
+def _evidence(fields):
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": list(fields),
+        "properties": {
+            f: {
+                "type": "string",
+                "description": f"A short phrase copied verbatim from the title or abstract that supports {f}, "
+                "or an empty string. Never repeat the value itself.",
+            }
+            for f in fields
+        },
+    }
+
+
+def compile_prompt(review, rules):
+    """The system text and the answer schema built from the rubric's `fields`.
+
+    Only a field the model or the review supplies is asked for. `values` make a closed list,
+    `type: list` takes several values, `type: number` an integer or null, else free text.
+    ponytail: build_prompt and output_schema still send the older nested shape; this replaces
+    them once validate() reads the fields too.
+    """
+    outcomes = [o["id"] for o in review["outcomes"]] + [OUTCOME_NONE]
+    asked = [f for f in rules["fields"] if f.get("source", "model") in ("model", "review")]
+
+    def shape(field):
+        if field.get("source") == "review":
+            return {"type": "string", "enum": outcomes}
+        if field.get("type") == "number":
+            return {"type": ["integer", "null"]}
+        item = {"type": "string", "enum": list(field["values"])} if field.get("values") else {"type": "string"}
+        return {"type": "array", "items": item} if field.get("type") == "list" else item
+
+    ids = [f["id"] for f in asked]
+    schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ids + ["evidence"],
+        "properties": {**{f["id"]: shape(f) for f in asked}, "evidence": _evidence(ids)},
+    }
+    meanings = "\n".join(f"- {f['id']}: {f.get('prompt') or f['label']}" for f in asked)
+    return _preamble(review) + meanings, schema
+
+
+def _preamble(review):
     outcomes = "\n".join(f"- {o['id']}: {o['name']}" for o in review["outcomes"])
-    system = (
+    return (
         "You tag one record for a living systematic review. You suggest; a human decides. "
         "Never include or exclude a study. Pick every value from the closed lists given. "
         "For each field copy one short phrase verbatim from the title or abstract into the "
@@ -129,7 +162,14 @@ def build_prompt(record, review):
         + "\n\nIntervention classes already in the review: "
         + "; ".join(review["intervention_classes_represented"])
         + "\n\nField meanings:\n"
-        "- intervention_tested: Yes if the record evaluates an intervention.\n"
+    )
+
+
+def build_prompt(record, review):
+    """Return (system, user) text. The review supplies every list; nothing is hardcoded."""
+    system = (
+        _preamble(review)
+        + "- intervention_tested: Yes if the record evaluates an intervention.\n"
         "- answers_question: Yes if the record's result bears on the review question above.\n"
         "- equity_relevance.level: None, Group included (a PROGRESS-Plus group is in the sample), "
         "or Results by factor (results are reported by a PROGRESS-Plus factor).\n"

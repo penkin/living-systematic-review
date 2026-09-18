@@ -15,7 +15,9 @@ from signal_tool.geography import REGION_COLUMNS
 # the form. Add a section here and in rubric_detail.html when the team needs to change one.
 
 OUTCOME_FIELDS = ("id", "name", "short", "n", "certainty", "absent", "inverted")
-FIELD_COLUMNS = ("id", "label", "values", "prompt", "confirmable")
+FIELD_COLUMNS = ("id", "label", "values", "prompt", "confirmable", "type")
+# How a model field is answered: one value from the list or free text, several values, or an integer.
+FIELD_TYPES = {"": "One value", "list": "Several values", "number": "A number"}
 CRITERION_COLUMNS = ("index", "id", "name", "help", "max", "default")
 OVERRIDE_COLUMNS = ("name", "label", "field", "equals", "action")
 # The keys of a criterion the score rows rebuild; every other key is carried from the base criterion.
@@ -82,6 +84,7 @@ def form_context(review, rules, ref):
     ]
     return {
         "fields": fields,
+        "field_types": FIELD_TYPES,
         "field_options": [(f["id"], f["label"]) for f in rules["fields"]],
         "rubric_version": rules["rubric_version"],
         "levels": [(level, rules["suggested_action"][level]) for level in levels],
@@ -246,7 +249,7 @@ def _fields(post, existing):
     """One field per row of the table. A row with a blank id is dropped; a built-in field only takes its label."""
     by_id = {f["id"]: f for f in existing}
     fields, seen = [], set()
-    for id_, label, values, prompt, confirmable in _rows(post, "field", FIELD_COLUMNS):
+    for id_, label, values, prompt, confirmable, type_ in _rows(post, "field", FIELD_COLUMNS):
         if not id_.strip():
             continue
         id_ = _ident(id_, "Field id")
@@ -268,7 +271,7 @@ def _fields(post, existing):
         elif not listed:
             field.pop("values", None)
             field.pop("labels", None)
-        for key, value in (("prompt", prompt.strip()), ("confirmable", confirmable == "yes")):
+        for key, value in (("prompt", prompt.strip()), ("confirmable", confirmable == "yes"), ("type", type_ if type_ in FIELD_TYPES else "")):
             if value:
                 field[key] = value
             else:
