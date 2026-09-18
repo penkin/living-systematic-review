@@ -70,7 +70,8 @@ class UploadTests(WebTestCase):
         response = self.post(
             GOOD + b"SYN-012,RETRACTED: Stroke admissions in Lagos,RETRACTED ARTICLE. Withdrawn.\n"
         )
-        self.assertContains(response, "1 ranked, 1 set aside")
+        self.assertContains(response, "1 ranked")
+        self.assertContains(response, '<div class="stat-title">Set aside</div>\n    <div class="stat-value">1</div>', html=False)
         self.assertContains(response, "Retracted by the publisher")
 
     def test_failed_model_call_is_shown_on_the_record(self):
@@ -128,7 +129,9 @@ class RunTests(WebTestCase):
 
     def test_dashboard_ranks_and_keeps_every_record(self):
         response = self.client.get(self.run_url)
-        self.assertContains(response, "29 ranked, 5 set aside")
+        self.assertContains(response, "29 ranked")
+        self.assertContains(response, '<div class="stat-title">Set aside</div>\n    <div class="stat-value">5</div>')
+        self.assertContains(response, 'High</span></div>\n    <div class="stat-value">13</div>')
         self.assertNotContains(response, '" data-poll>')
         for i in range(1, 35):
             self.assertContains(response, f'id="SYN-{i:03d}"')

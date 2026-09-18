@@ -18,16 +18,31 @@
 </main>
 <script>
 // A page with data-poll is still being tagged. Swap the content in place: a full
-// reload flashes and loses the scroll position every three seconds.
+// reload flashes and loses the scroll position every three seconds. Elements with
+// an id (the record rows) then slide from their old position to their new one, so
+// the reviewer can follow a row as it gets ranked.
 (function () {
   const main = document.querySelector("main");
   if (!main.hasAttribute("data-poll")) return;
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function tops() {
+    return new Map([...main.querySelectorAll("[id]")].map((el) => [el.id, el.getBoundingClientRect().top]));
+  }
+  function slide(before) {
+    for (const [id, top] of before) {
+      const el = document.getElementById(id);
+      const dy = el ? top - el.getBoundingClientRect().top : 0;
+      if (dy) el.animate([{ transform: `translateY(${dy}px)` }, { transform: "none" }], { duration: 600, easing: "ease-in-out" });
+    }
+  }
   function poll() {
     fetch(location.href)
       .then((response) => response.text())
       .then((html) => {
         const fresh = new DOMParser().parseFromString(html, "text/html").querySelector("main");
+        const before = tops();
         main.innerHTML = fresh.innerHTML;
+        if (!still) slide(before);
         main.toggleAttribute("data-poll", fresh.hasAttribute("data-poll"));
         if (main.hasAttribute("data-poll")) setTimeout(poll, 3000);
       })
