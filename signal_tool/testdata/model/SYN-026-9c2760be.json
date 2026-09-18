@@ -4,34 +4,32 @@
  "outcome_touched": "O1",
  "intervention_tested": "No",
  "answers_question": "Yes",
- "equity_relevance": {
-  "level": "Group included",
-  "factors": [
-   "Age"
-  ]
- },
+ "equity_level": "Group included",
+ "equity_factors": [
+  "Age"
+ ],
  "harm_reported": "No",
- "new_intervention_class": {
-  "value": "No",
-  "class_name": ""
- },
+ "new_intervention_class": "No",
+ "new_class_name": "",
  "policy_relevance": "Some",
  "countries_iso3": [],
  "sample_size": 214,
+ "model_version": "anthropic/claude-haiku-4.5",
+ "prompt_version": "p3",
+ "prompt_date": "2026-09-17",
  "evidence": {
   "study_design": "systematic review and meta-analysis",
   "relevance": "African studies contributed 6% of included estimates",
   "outcome_touched": "associations between ambient heat and mortality",
   "intervention_tested": "",
   "answers_question": "pooled estimates are presented by region, age group and cause of death",
-  "equity_relevance": "pooled estimates are presented by region, age group and cause of death",
+  "equity_level": "pooled estimates are presented by region, age group and cause of death",
+  "equity_factors": "pooled estimates are presented by region, age group and cause of death",
   "harm_reported": "",
   "new_intervention_class": "",
+  "new_class_name": "",
   "policy_relevance": "",
   "countries_iso3": "",
   "sample_size": "214 studies"
- },
- "model_version": "anthropic/claude-haiku-4.5",
- "prompt_version": "p2",
- "prompt_date": "2026-09-17"
+ }
 }

@@ -89,19 +89,24 @@ def score_record(tags, review, rules):
     outcome_name = outcome.get("short", outcome["name"]) if outcome else ""
 
     criteria = rules["criteria"]
-    scores = {c: score_from_tags(c, tags, rules) for c in criteria if c != "G"}
+    # The certainty criterion reads the review, not the record, so it is scored apart.
+    g = next((c for c, rule in criteria.items() if rule.get("source_field") == "outcome_certainty"), None)
+    scores = {c: score_from_tags(c, tags, rules) for c in criteria if c != g}
     values = {c: _value_text(criteria[c], tags, rules) for c in scores}
     # SPEC.md section 4: an outcome the review does not cover, or one the table has
     # decided not to pursue, earns nothing for landing where the review is uncertain.
-    if scope_question:
-        scores["G"], values["G"] = 0, criteria["G"]["not_covered_label"]
+    if g is None:
+        pass
+    elif scope_question:
+        scores[g], values[g] = 0, criteria[g]["not_covered_label"]
     elif outcome.get("certainty_inverted"):
-        scores["G"], values["G"] = 0, criteria["G"]["not_pursued_label"]
+        scores[g], values[g] = 0, criteria[g]["not_pursued_label"]
     else:
-        scores["G"] = score_from_tags("G", {"outcome_certainty": certainty}, rules)
-        values["G"] = criteria["G"]["value_template"].format(
+        scores[g] = score_from_tags(g, {"outcome_certainty": certainty}, rules)
+        values[g] = criteria[g]["value_template"].format(
             outcome=outcome_name, certainty=certainty.lower(), n_studies=n_studies, studies=studies
         )
+    a = scores.get("A", 0)
     total = sum(scores.values())
     signal_max = sum(rule["max"] for rule in criteria.values())
     criteria_detail = [
@@ -111,7 +116,7 @@ def score_record(tags, review, rules):
 
     templates = rules["level_steps"]
     high, moderate = rules["thresholds"]["high"], rules["thresholds"]["moderate"]
-    if total >= high["min_total"] and scores["A"] >= high["min_A"]:
+    if total >= high["min_total"] and a >= high["min_A"]:
         level = "HIGH"
     elif total >= moderate["min_total"]:
         level = "MODERATE"
@@ -121,10 +126,10 @@ def score_record(tags, review, rules):
         total=total, max=signal_max, high_min=high["min_total"], high_min_a=high["min_A"],
         moderate_min=moderate["min_total"], level=level.capitalize(),
     )]
-    a_cap = rules["thresholds"]["a_caps"].get(scores["A"])
+    a_cap = rules["thresholds"]["a_caps"].get(a)
     if a_cap:
         level = _cap(level, a_cap, levels)
-        steps.append(templates["a_cap"].format(a=scores["A"], cap=a_cap.capitalize()))
+        steps.append(templates["a_cap"].format(a=a, cap=a_cap.capitalize()))
     level_from_threshold = level
 
     switches = rules["switches"]
@@ -155,7 +160,7 @@ def score_record(tags, review, rules):
     tags = dict(tags, absent_context_hit="Yes" if geography & absent else "No")
 
     matched = [r for r in rules["overrides"] if tags.get(r["source_field"]) == r["equals"]]
-    triggered = matched if scores["A"] > 0 else []
+    triggered = matched if a > 0 else []
     for rule in triggered:
         if rule["action"] == "raise":
             level = levels[min(levels.index(level) + 1, len(levels) - 1)]

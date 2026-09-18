@@ -35,7 +35,7 @@
               {% elif r.run.status == "failed" %}· <span class="text-error">stopped: {{ r.run.error }}</span>{% endif %}
             </div>
           </td>
-          <td class="whitespace-nowrap text-sm text-base-content/70">{{ r.rubric_version }} · {{ r.review_id }}</td>
+          <td class="whitespace-nowrap text-sm text-base-content/70">{{ r.run.rubric.name|default:r.review_id }} · {{ r.rubric_version }}</td>
           <td class="text-center">{{ r.total }}</td>
           {% for level, action, count in r.levels %}<td class="text-center">{{ count }}</td>{% endfor %}
           <td class="text-center">{{ r.checked }}</td>

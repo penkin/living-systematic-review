@@ -4,36 +4,34 @@
  "outcome_touched": "O4",
  "intervention_tested": "No",
  "answers_question": "Yes",
- "equity_relevance": {
-  "level": "Group included",
-  "factors": [
-   "Occupation"
-  ]
- },
+ "equity_level": "Group included",
+ "equity_factors": [
+  "Occupation"
+ ],
  "harm_reported": "No",
- "new_intervention_class": {
-  "value": "No",
-  "class_name": ""
- },
+ "new_intervention_class": "No",
+ "new_class_name": "",
  "policy_relevance": "Some",
  "countries_iso3": [
   "RWA"
  ],
  "sample_size": 38,
+ "model_version": "anthropic/claude-haiku-4.5",
+ "prompt_version": "p3",
+ "prompt_date": "2026-09-17",
  "evidence": {
   "study_design": "Thirty-eight informal waste workers wore chest-mounted sensors for ten working days",
   "relevance": "occupational heat strain among informal waste workers in Kigali",
   "outcome_touched": "Sustained elevations in physiological strain were recorded",
   "intervention_tested": "",
   "answers_question": "heat strain among informal waste workers",
-  "equity_relevance": "informal waste workers",
+  "equity_level": "informal waste workers",
+  "equity_factors": "informal waste workers",
   "harm_reported": "",
   "new_intervention_class": "",
+  "new_class_name": "",
   "policy_relevance": "Feasibility, device tolerance and data completeness are reported",
   "countries_iso3": "Kigali, Rwanda",
   "sample_size": "Thirty-eight informal waste workers"
- },
- "model_version": "anthropic/claude-haiku-4.5",
- "prompt_version": "p2",
- "prompt_date": "2026-09-17"
+ }
 }

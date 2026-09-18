@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-from signal_tool.suggest import EVIDENCE_FIELDS, compile_prompt, output_schema, parse_json, suggest, validate
+from signal_tool.suggest import asked_fields, compile_prompt, parse_json, suggest, validate
 
 ROOT = Path(__file__).resolve().parents[1]
 REVIEW = yaml.safe_load((ROOT / "review.yaml").read_text(encoding="utf-8"))
@@ -21,10 +21,10 @@ RECORD = {"record_id": "SYN-999", "title": "Heat and sleep in Accra", "abstract"
 GOOD = {
     "study_design": "cohort", "relevance": "Direct", "outcome_touched": "O1",
     "intervention_tested": "No", "answers_question": "Yes",
-    "equity_relevance": {"level": "None", "factors": []}, "harm_reported": "No",
-    "new_intervention_class": {"value": "No", "class_name": ""}, "policy_relevance": "Some",
+    "equity_level": "None", "equity_factors": [], "harm_reported": "No",
+    "new_intervention_class": "No", "new_class_name": "", "policy_relevance": "Some",
     "countries_iso3": ["GHA"], "sample_size": 40,
-    "evidence": {f: "" for f in EVIDENCE_FIELDS},
+    "evidence": {f["id"]: "" for f in asked_fields(RULES)},
 }
 
 
@@ -66,49 +66,50 @@ class SuggestTests(unittest.TestCase):
         client = FixtureClient()
         for record in cards():
             with self.subTest(record=record["record_id"]):
-                tags = suggest(record, REVIEW, client)
+                tags = suggest(record, REVIEW, RULES, client)
                 self.assertTrue(tags["model_version"])
                 self.assertEqual(tags["validation_errors"], [])
         self.assertEqual(client.calls, 34)
 
     def test_calls_the_client_once_with_the_schema(self):
         client = FakeClient()
-        tags = suggest(RECORD, REVIEW, client)
+        tags = suggest(RECORD, REVIEW, RULES, client)
         self.assertEqual(len(client.calls), 1)
         self.assertEqual(tags["study_design"], "cohort")
         system, user, schema = client.calls[0]
         self.assertIn("Review question", system)
         self.assertTrue(user.startswith("record_id: SYN-999\n"))
-        self.assertEqual(schema, output_schema(REVIEW))
+        self.assertEqual((system, schema), compile_prompt(REVIEW, RULES))
 
     def test_a_client_error_propagates(self):
         with self.assertRaises(LookupError):
-            suggest(RECORD, REVIEW, FixtureClient())
+            suggest(RECORD, REVIEW, RULES, FixtureClient())
 
 
 class ValidateTests(unittest.TestCase):
     def test_good_values_pass_untouched(self):
-        out = validate(GOOD, RECORD, REVIEW)
+        out = validate(GOOD, RECORD, REVIEW, RULES)
         self.assertEqual(out["validation_errors"], [])
         self.assertEqual(out["outcome_touched"], "O1")
         self.assertEqual(out["model_status"], "ok")
 
-    def test_stray_values_take_the_safe_default_and_are_logged(self):
+    def test_stray_values_become_untagged_and_are_logged(self):
         bad = dict(GOOD, study_design="case report", outcome_touched="O42", harm_reported="Maybe",
-                   equity_relevance={"level": "Lots", "factors": ["Age", "Hair colour"]},
+                   equity_level="Lots", equity_factors=["Age", "Hair colour"],
                    countries_iso3=["Ghana", "GHA"], sample_size="forty")
-        out = validate(bad, RECORD, REVIEW)
-        self.assertEqual(out["study_design"], "other")
+        out = validate(bad, RECORD, REVIEW, RULES)
+        self.assertIsNone(out["study_design"])
         self.assertEqual(out["outcome_touched"], "NONE")
-        self.assertEqual(out["harm_reported"], "Unclear")
-        self.assertEqual(out["equity_relevance"], {"level": "None", "factors": ["Age"]})
-        self.assertEqual(out["countries_iso3"], ["GHA"])
+        self.assertIsNone(out["harm_reported"])
+        self.assertIsNone(out["equity_level"])
+        self.assertEqual(out["equity_factors"], ["Age"])
+        self.assertEqual(out["countries_iso3"], ["Ghana", "GHA"])
         self.assertIsNone(out["sample_size"])
         self.assertEqual(len(out["validation_errors"]), 4)
 
     def test_evidence_must_be_verbatim(self):
         data = dict(GOOD, evidence=dict(GOOD["evidence"], study_design="A cohort of 40 adults", relevance="made up"))
-        out = validate(data, RECORD, REVIEW)
+        out = validate(data, RECORD, REVIEW, RULES)
         self.assertEqual(out["evidence"]["study_design"], "A cohort of 40 adults")
         self.assertEqual(out["evidence"]["relevance"], "")
         self.assertEqual(out["evidence_missing"], ["relevance"])
@@ -127,10 +128,5 @@ class ValidateTests(unittest.TestCase):
         self.assertEqual(schema["properties"]["countries_iso3"], {"type": "array", "items": {"type": "string"}})
         self.assertEqual(schema["properties"]["sample_size"], {"type": ["integer", "null"]})
         self.assertIn(REVIEW["review_question"].strip(), system)
-        self.assertIn("- harm_reported: Yes only if an adverse event or harm is a reported finding.", system)
+        self.assertIn("- harm_reported: Yes only if the record reports an adverse event or harm caused by an intervention.", system)
         self.assertNotIn("record_type", system)
-
-    def test_schema_enumerates_the_review_lists(self):
-        schema = output_schema(REVIEW)
-        self.assertIn("NONE", schema["properties"]["outcome_touched"]["enum"])
-        self.assertEqual(schema["properties"]["study_design"]["enum"], REVIEW["allowed_values"]["study_design"])

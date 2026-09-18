@@ -4,34 +4,32 @@
  "outcome_touched": "O1",
  "intervention_tested": "No",
  "answers_question": "Yes",
- "equity_relevance": {
-  "level": "None",
-  "factors": []
- },
+ "equity_level": "None",
+ "equity_factors": [],
  "harm_reported": "Yes",
- "new_intervention_class": {
-  "value": "No",
-  "class_name": ""
- },
+ "new_intervention_class": "No",
+ "new_class_name": "",
  "policy_relevance": "Some",
  "countries_iso3": [
   "ZAF"
  ],
  "sample_size": null,
+ "model_version": "anthropic/claude-haiku-4.5",
+ "prompt_version": "p3",
+ "prompt_date": "2026-09-17",
  "evidence": {
   "study_design": "Daily all-cause mortality counts for Johannesburg from 2009 to 2024 were analysed using distributed lag non-linear models",
   "relevance": "Heatwave days were associated with elevated same-day and one-day-lagged mortality",
   "outcome_touched": "all-cause mortality",
   "intervention_tested": "",
   "answers_question": "Heatwaves and all-cause mortality in Johannesburg",
-  "equity_relevance": "",
+  "equity_level": "",
+  "equity_factors": "",
   "harm_reported": "Heatwave days were associated with elevated same-day and one-day-lagged mortality",
   "new_intervention_class": "",
+  "new_class_name": "",
   "policy_relevance": "time-series analysis",
   "countries_iso3": "Johannesburg, South Africa",
   "sample_size": ""
- },
- "model_version": "anthropic/claude-haiku-4.5",
- "prompt_version": "p2",
- "prompt_date": "2026-09-17"
+ }
 }

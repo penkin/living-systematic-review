@@ -16,7 +16,7 @@
   <td class="max-w-sm text-sm text-base-content/70" data-show="prompt">{% if f and not f.editable %}{% if f.source == "review" %}The outcomes of the review, from the section below.{% else %}Worked out by the tool from the record. Its values are fixed in the code.{% endif %}{% else %}{{ f.prompt|default:'' }}{% endif %}</td>
   <td data-show="confirmable">{% if f.confirmable %}Yes{% else %}No{% endif %}</td>
   <td class="whitespace-nowrap text-right">
-    <button type="button" class="btn btn-ghost btn-xs" onclick="editField(this.closest('tr'))">Edit</button>
-    {% if not f or f.editable %}<button type="button" class="btn btn-ghost btn-xs" onclick="this.closest('tr').remove()" aria-label="Remove field">Remove</button>{% endif %}
+    <button type="button" class="btn btn-soft btn-primary btn-xs" onclick="editField(this.closest('tr'))">Edit</button>
+    {% if not f or f.editable %}<button type="button" class="btn btn-soft btn-error btn-xs" onclick="this.closest('tr').remove()" aria-label="Remove field">Remove</button>{% endif %}
   </td>
 </tr>

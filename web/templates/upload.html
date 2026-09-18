@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block nav %}
 <a class="btn btn-ghost btn-sm" href="{% url 'run_list' %}">All runs</a>
+<a class="btn btn-ghost btn-sm" href="{% url 'rubric_list' %}">All rubrics</a>
 {% endblock %}
 {% block content %}
 <div class="mx-auto max-w-4xl">
@@ -22,6 +23,13 @@
           <span class="font-medium">Records file</span>
           <input type="file" name="cards" accept=".csv,text/csv" required class="file-input w-full">
           <span class="text-sm text-base-content/60">A CSV with the columns <code>record_id</code>, <code>title</code> and <code>abstract</code>. Covidence, Rayyan and EPPI-Reviewer exports work as they are.</span>
+        </label>
+        <label class="flex flex-col gap-1">
+          <span class="font-medium">Rubric</span>
+          <select name="rubric" required class="select w-full">
+            {% for r in rubrics %}<option value="{{ r.rubric.pk }}">{{ r.rubric.name }} · {{ r.version }}</option>{% endfor %}
+          </select>
+          <span class="text-sm text-base-content/60">The rules the records are tagged and ranked by. The run keeps a copy, so a later change to the rubric does not touch it. <a class="link" href="{% url 'rubric_list' %}">Build or change a rubric</a>.</span>
         </label>
         <div class="card-actions items-center gap-3">
           <button type="submit" class="btn btn-primary">Rank the records</button>

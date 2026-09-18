@@ -68,17 +68,18 @@ The tool suggests.
   instructions. The first visit to `rubrics/` stores the two files on disk as the first rubric;
   "New rubric" starts an empty one and "Next version" copies a saved one with the last number in its version one higher.
   - `models.py` — five tables. `Run` (uuid, status `processing`, `done` or `failed`,
-    `error`, `handsort` text, and `rubric_yaml` and `review_yaml`, the settings the run
-    was ranked by as YAML text; empty means the files on disk, which is what every run
-    made before the columns existed used). `Record` (the seven `cards.csv` columns, the validated
+    `error`, `handsort` text, `rubric`, the saved `Rubric` the upload page picked, and
+    `rubric_yaml` and `review_yaml`, that rubric's two texts copied when the run started, so
+    a later edit of the rubric leaves the run alone; empty means the files on disk, which
+    is what every run made before the columns existed used). `Record` (the seven `cards.csv` columns, the validated
     stage 2 `model_response` JSON, `model_status`, `model_error`). `Tag` (one row per
     field per record: `value`, `status` `rule`, `suggested`, `confirmed` or
     `overridden`, `evidence`). `Result` (one per record once tagged: `signal_level`,
     `signal_score`, and `detail`, the full `build_row` dict the pages render).
     A record with no `Result` is still being tagged. `Rubric` (uuid, `name`, and the same
-    two YAML texts a Run stores) is a rubric built in the builder. No run reads a `Rubric`
-    yet: the builder is step one, the switch of runs onto it comes after it can rebuild the
-    current files and build a different rubric for another review.
+    two YAML texts a Run stores) is a rubric built in the builder. The upload page lists them
+    in a select; the first visit to `/new/` or `rubrics/` stores the two files on disk as
+    the first one.
   - `tasks.py` — `start_run` puts `process_run` on a daemon thread. Stage 1 over the
     whole batch, then stage 2 calls in a `ThreadPoolExecutor`; only the orchestrating
     thread touches the database. `save_result` runs stage 3 for one record and is
@@ -105,24 +106,33 @@ The tool suggests.
   stage, tests beside them as `test_*.py`:
   - `tagging.py` — stage 1. `geography.py` — reference loader and the country, region
     and income resolver. `reference.py` — the one-off World Bank download.
-  - `suggest.py` — stage 2, `suggest(record, review, client)`: the model call and the
-    closed-list validation. `build_client()` returns None without `OPENROUTER_API_KEY`.
+  - `suggest.py` — stage 2, `suggest(record, review, rules, client)`: the model call and
+    the validation. `build_client()` returns None without `OPENROUTER_API_KEY`.
     `compile_prompt(review, rules)` builds the system text and the answer schema from the
-    rubric's `fields`; the page `rubrics/<uuid>/prompt/` shows both. The
-    live call still uses `build_prompt` and `output_schema`, the older nested shape, until
-    `validate` reads the fields too.
+    rubric's `fields` with source `model` or `review` (`asked_fields`); the page
+    `rubrics/<uuid>/prompt/` shows both. The answer is flat, one key per field. `validate`
+    coerces every answer onto its field's shape: a stray closed-list value becomes `None`
+    (the page shows "Not tagged") and is logged in `validation_errors`; a stray outcome
+    becomes `NONE`.
   - `scoring.py` — stage 3, `score_record(tags, review, rules)`.
-  - `pipeline.py` — `tags_for()` turns a tagged record and its model response into
-    the tag entry, `build_row()` scores one record into a `signals.csv` row,
-    `write_csv()` writes the rows. `evaluate.py` — the D7 checks.
+  - `pipeline.py` — `tags_for(record, model, rules)` turns a tagged record and its model
+    response into the tag entry, one tag per asked field, `build_row()` scores one record
+    into a `signals.csv` row, `write_csv(rows, handle, rules)` writes the rows.
+    `confirmable(rules)` is the ids marked `confirmable`; `columns(rules)` is the CSV header:
+    the input columns, stage 1, the asked fields, the resolved geography and certainty, one
+    column per criterion, then the tail. `evaluate.py` — the D7 checks.
   - `testdata/model/<record_id>-<hash8>.json` — 34 real model responses for
-    `cards.csv`, used as test fixtures. `FixtureClient` in `test_suggest.py` serves
-    them by `record_id`.
+    `cards.csv`, flattened to the compiled shape and used as test fixtures. `FixtureClient`
+    in `test_suggest.py` serves them by the `record_id:` line of the user turn.
 - `rubric.yaml` — every rule: record types and lanes, `fields` (every field a criterion
   or override can read, with its source, closed list, answer type, model prompt sentence,
-  labels and whether a reviewer confirms it; today data for the builder and its compiled
-  prompt only, the pipeline still names its fields in `suggest.py`, `pipeline.py`, `scoring.py` and `views.py`), criteria
-  A–G, thresholds, overrides, switches, reason templates, suggested actions, `regret_top_n`.
+  labels, `help` and whether a reviewer confirms it; the prompt, the validation, the tag
+  entry, the CSV header and the record page all read this list), criteria A–G, thresholds,
+  overrides, switches, reason templates, suggested actions, `regret_top_n`. Stage 1 still
+  sets its fields in `tagging.py`, and the scorer and the pages still name the built-in
+  fields `outcome_touched`, `sample_size`, `study_design`, `countries_iso3` and
+  `lmic_setting`, the ones `rubric_new` keeps in every rubric. The scorer finds the
+  certainty criterion by `source_field: outcome_certainty` and runs without it.
 - `review.yaml` — the review as data: outcomes with certainty, closed lists, regions.
 - `reference/` — `iso3166_regions.csv`, `worldbank_income.json`, and `METADATA.json`
   with the download date.
@@ -132,9 +142,9 @@ The tool suggests.
 ## Hard rules
 
 - Never include or exclude a study. Never decide that the review needs an update.
-- Every model output is `suggested` until a human confirms it. Five fields carry a
-  confirm/override control: `record_type`, `relevance`, `outcome_touched`,
-  `harm_reported`, `new_intervention_class`.
+- Every model output is `suggested` until a human confirms it. Every field marked
+  `confirmable` in the rubric carries a confirm/override control; today `record_type`,
+  `relevance`, `outcome_touched`, `harm_reported`, `new_intervention_class`.
 - Low records stay visible. Deprioritise them, never hide them.
 - Never infer outcome certainty. Look it up in `review.yaml`.
 - Never hardcode geography. Countries, regions, and income groups come from
@@ -167,8 +177,8 @@ re-runs for the one record on every confirmation, so keep it pure: tags plus
 `review.yaml` plus the rubric in, criteria and level out.
 
 The upload page shows a spinner from the click on "Rank the records" until the run page
-opens. A run stores the two yaml files as they are when it starts; a rubric from the builder
-is not wired into a run yet. While the run is `processing`, the run page and a pending record
+opens. The upload page asks for a rubric; the run copies its two texts as they are when it
+starts. While the run is `processing`, the run page and a pending record
 page put `data-poll` on `<main>`. The script in `base.html` then fetches the page every
 three seconds and swaps the content in place, so the spinners update without a reload.
 Each record with no `Result` yet shows a spinner. After a swap, every element with an

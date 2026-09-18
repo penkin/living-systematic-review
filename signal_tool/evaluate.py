@@ -5,7 +5,7 @@ import io
 import re
 from collections import defaultdict
 
-from signal_tool.pipeline import CONFIRMABLE
+from signal_tool.pipeline import confirmable
 from signal_tool.scoring import score_record
 
 DELIMITERS = ",;\t|"
@@ -186,7 +186,7 @@ def agreement(rows, handsort, rules):
                 "tool_level": tool,
                 "hand_level": hand,
                 "agree": tool == hand,
-                **{f: row.get(f) for f in CONFIRMABLE},
+                **{f: row.get(f) for f in confirmable(rules)},
             }
         )
     return {"levels": levels, "table": table, "records": records}
