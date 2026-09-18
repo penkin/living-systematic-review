@@ -4,17 +4,13 @@
  "outcome_touched": "O3",
  "intervention_tested": "No",
  "answers_question": "Yes",
- "equity_relevance": {
-  "level": "Group included",
-  "factors": [
-   "Place of residence"
-  ]
- },
+ "equity_level": "Group included",
+ "equity_factors": [
+  "Place of residence"
+ ],
  "harm_reported": "No",
- "new_intervention_class": {
-  "value": "No",
-  "class_name": ""
- },
+ "new_intervention_class": "No",
+ "new_class_name": "",
  "policy_relevance": "Some",
  "countries_iso3": [
   "TZA",
@@ -22,20 +18,22 @@
   "ZAF"
  ],
  "sample_size": 2100000,
+ "model_version": "anthropic/claude-haiku-4.5",
+ "prompt_version": "p3",
+ "prompt_date": "2026-09-17",
  "evidence": {
   "study_design": "admission records from tertiary hospitals",
   "relevance": "coastal cities in Africa with heat-attributable admissions",
   "outcome_touched": "cardiovascular and renal categories",
   "intervention_tested": "",
   "answers_question": "ambient temperature, humidity and their interaction",
-  "equity_relevance": "three coastal cities",
+  "equity_level": "three coastal cities",
+  "equity_factors": "three coastal cities",
   "harm_reported": "",
   "new_intervention_class": "",
+  "new_class_name": "",
   "policy_relevance": "heat-attributable admissions exceeded previous continental estimates",
   "countries_iso3": "Dar es Salaam, Maputo and Durban",
   "sample_size": "2.1 million admission records"
- },
- "model_version": "anthropic/claude-haiku-4.5",
- "prompt_version": "p2",
- "prompt_date": "2026-09-17"
+ }
 }

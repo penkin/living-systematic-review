@@ -33,8 +33,13 @@ class WebTestCase(TestCase):
         self.enterContext(patch("web.views.build_client", return_value=self.model))
         self.client = Client()
 
+    def upload(self, cards, **kwargs):
+        """Post a file with the rubric the upload page seeds from the files."""
+        self.client.get("/new/")
+        return self.client.post("/new/", {"cards": cards, "rubric": Rubric.objects.get().pk}, **kwargs)
+
     def post(self, body):
-        return self.client.post("/new/", {"cards": io.BytesIO(body)}, follow=True)
+        return self.upload(io.BytesIO(body), follow=True)
 
 
 class UploadTests(WebTestCase):
@@ -124,7 +129,7 @@ class RunTests(WebTestCase):
     def setUp(self):
         super().setUp()
         with (settings.BASE_DIR / "cards.csv").open("rb") as handle:
-            response = self.client.post("/new/", {"cards": handle})
+            response = self.upload(handle)
         self.run_url = response["Location"]
         self.run_id = self.run_url.rstrip("/").rsplit("/", 1)[1]
 
@@ -234,7 +239,7 @@ class RunTests(WebTestCase):
         self.assertIn("signals.csv", response["Content-Disposition"])
         rows = list(csv.DictReader(io.StringIO(response.content.decode("utf-8"))))
         self.assertEqual(len(rows), 34)
-        self.assertEqual(list(rows[0]), list(pipeline.COLUMNS))
+        self.assertEqual(list(rows[0]), list(pipeline.columns(config()[1])))
 
     def test_evaluate_page_and_hand_sort(self):
         page = self.client.get(f"{self.run_url}evaluate/")
@@ -310,7 +315,7 @@ class PasswordGateTests(TestCase):
 class RunListTests(WebTestCase):
     def rank(self):
         with (settings.BASE_DIR / "cards.csv").open("rb") as handle:
-            response = self.client.post("/new/", {"cards": handle})
+            response = self.upload(handle)
         return Run.objects.get(pk=response["Location"].rstrip("/").rsplit("/", 1)[1])
 
     def test_empty_settings_fall_back_to_the_files(self):
@@ -325,7 +330,7 @@ class RunListTests(WebTestCase):
         self.assertContains(page, f'href="/run/{first.pk}/"')
         self.assertContains(page, f'href="/run/{second.pk}/"')
         self.assertEqual(self.counts(page, first), ["34", "13", "10", "6", "0", "5"])
-        self.assertContains(page, "v0 · ")
+        self.assertContains(page, "heat-africa-urban-lsr · v0")
         self.assertContains(page, 'href="/new/"')
         self.assertContains(self.client.get(f"/run/{first.pk}/rubric.yaml"), "rubric_version: v0")
 
@@ -382,7 +387,7 @@ class FormParser(HTMLParser):
             self.data[self.textarea][-1] += data
 
 
-class RubricTests(TestCase):
+class RubricTests(WebTestCase):
     def new(self):
         """The rubric the list page seeds from the files, and its builder page."""
         self.client.get("/rubrics/")
@@ -463,6 +468,19 @@ class RubricTests(TestCase):
             {"id": "cost_reported", "source": "model", "label": "Cost reported", "values": ["Yes", "No"], "prompt": "Yes if the record reports a cost.", "confirmable": True},
         )
         self.assertEqual(rules["criteria"]["A"]["parts"][0]["scores"], {"Yes": 1})
+
+        with (settings.BASE_DIR / "cards.csv").open("rb") as handle:
+            response = self.client.post("/new/", {"cards": handle, "rubric": rubric.pk})
+        run = Run.objects.get(rubric=rubric)
+        self.assertEqual(yaml.safe_load(run.rubric_yaml), rules)
+        record = self.client.get(f"{response['Location']}record/SYN-001/")
+        self.assertContains(record, "Cost reported")
+        self.assertContains(record, "Yes if the record reports a cost.")
+        self.assertContains(record, 'name="field" value="cost_reported"')
+        header = self.client.get(f"{response['Location']}signals.csv").content.decode().splitlines()[0]
+        self.assertIn("cost_reported", header.split(","))
+        self.assertNotIn("D", header.split(","))
+        self.assertContains(self.client.get("/"), "Cost review")
         self.assertEqual(rules["criteria"]["F"]["scores"], {1: 1})
 
     def test_a_bad_row_shows_the_error_and_keeps_the_rubric(self):

@@ -9,42 +9,21 @@ import csv
 
 from signal_tool.geography import resolve
 from signal_tool.scoring import score_record
-
-# SPEC.md section 3: the five fields a human confirms or overrides.
-CONFIRMABLE = ("record_type", "relevance", "outcome_touched", "harm_reported", "new_intervention_class")
+from signal_tool.suggest import asked_fields
 
 STAGE_ONE = (
     "record_type", "lane", "lane_reason", "recency_score", "is_duplicate", "duplicate_of",
     "secondary_report", "non_english", "countries_rule",
 )
-# stage 2 field name in tags -> (key in the model JSON, evidence key)
-STAGE_TWO = {
-    "study_design": ("study_design", "study_design"),
-    "relevance": ("relevance", "relevance"),
-    "outcome_touched": ("outcome_touched", "outcome_touched"),
-    "intervention_tested": ("intervention_tested", "intervention_tested"),
-    "answers_question": ("answers_question", "answers_question"),
-    "equity_level": (("equity_relevance", "level"), "equity_relevance"),
-    "equity_factors": (("equity_relevance", "factors"), "equity_relevance"),
-    "harm_reported": ("harm_reported", "harm_reported"),
-    "new_intervention_class": (("new_intervention_class", "value"), "new_intervention_class"),
-    "new_class_name": (("new_intervention_class", "class_name"), "new_intervention_class"),
-    "policy_relevance": ("policy_relevance", "policy_relevance"),
-    "countries_iso3": ("countries_iso3", "countries_iso3"),
-    "sample_size": ("sample_size", "sample_size"),
-}
 MODEL_META = ("model_version", "prompt_version", "prompt_date", "model_status", "validation_errors", "evidence_missing")
-
-# SPEC.md section 5 order, then the blank reviewer columns, then the version fields.
-COLUMNS = (
-    "record_id", "title", "abstract", "year", "language", "location",
-    *STAGE_ONE,
-    "study_design", "relevance", "outcome_touched", "intervention_tested", "answers_question",
-    "equity_level", "equity_factors", "harm_reported", "new_intervention_class", "new_class_name",
-    "policy_relevance", "sample_size",
+INPUT = ("record_id", "title", "abstract", "year", "language", "location")
+# The stage 3 and geography columns, after the tagged fields.
+SCORED = (
     "countries", "regions", "lmic_setting", "income_levels",
     "outcome_certainty", "n_studies",
-    "A", "B", "C", "D", "E", "F", "G", "signal_score", "level_from_threshold", "signal_level",
+)
+TAIL = (
+    "signal_score", "level_from_threshold", "signal_level",
     "override_triggered", "signal_reason", "suggested_action", "scope_question", "out_of_region",
     "model_status",
     "reviewer_decision", "reviewer_reason", "reviewer_initials", "reviewer_date",
@@ -52,10 +31,15 @@ COLUMNS = (
 )
 
 
-def _dig(data, key):
-    if isinstance(key, tuple):
-        return (data.get(key[0]) or {}).get(key[1])
-    return data.get(key)
+def confirmable(rules):
+    """The fields a human confirms or overrides on the record page. SPEC.md section 3."""
+    return [f["id"] for f in rules["fields"] if f.get("confirmable")]
+
+
+def columns(rules):
+    """signals.csv columns: SPEC.md section 5 order, then the blank reviewer columns, then the version fields."""
+    asked = [f["id"] for f in asked_fields(rules)]
+    return (*INPUT, *STAGE_ONE, *asked, *SCORED, *rules["criteria"], *TAIL)
 
 
 def model_meta(model):
@@ -65,19 +49,20 @@ def model_meta(model):
     return {k: model.get(k) for k in MODEL_META}
 
 
-def tags_for(record, model):
+def tags_for(record, model, rules):
     """One entry: stage 1 tags as rules, stage 2 tags as suggestions, plus the model meta."""
     tags = {f: {"value": record.get(f), "status": "rule", "evidence": ""} for f in STAGE_ONE}
     if model is not None:
         evidence = model.get("evidence") or {}
-        for field, (key, evidence_key) in STAGE_TWO.items():
-            tags[field] = {"value": _dig(model, key), "status": "suggested", "evidence": evidence.get(evidence_key, "")}
+        for field in asked_fields(rules):
+            key = field["id"]
+            tags[key] = {"value": model.get(key), "status": "suggested", "evidence": evidence.get(key, "")}
     return {"tags": tags, "model": model_meta(model)}
 
 
-def write_csv(rows, handle):
-    """signals.csv: every row in COLUMNS order, lists joined with semicolons."""
-    writer = csv.DictWriter(handle, fieldnames=COLUMNS, extrasaction="ignore")
+def write_csv(rows, handle, rules):
+    """signals.csv: every row in columns(rules) order, lists joined with semicolons."""
+    writer = csv.DictWriter(handle, fieldnames=columns(rules), extrasaction="ignore")
     writer.writeheader()
     writer.writerows({k: _cell(v) for k, v in row.items()} for row in rows)
 
@@ -94,9 +79,9 @@ def build_row(record, entry, review, rules, ref):
     if entry["tags"]["record_type"]["status"] == "overridden":
         rule = rules["record_types"][tags["record_type"]]
         tags["lane"], tags["lane_reason"] = rule["lane"], rule.get("lane_reason", "")
-    row = {k: record.get(k, "") for k in ("record_id", "title", "abstract", "year", "language", "location")}
+    row = {k: record.get(k, "") for k in INPUT}
     row.update(tags)
-    row.update({k: "" for k in COLUMNS if k not in row})
+    row.update({k: "" for k in columns(rules) if k not in row})
     row.update(entry["model"])
     row["rubric_version"] = rules["rubric_version"]
     row["reference_date"] = ref["date"]

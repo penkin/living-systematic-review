@@ -12,23 +12,8 @@ from datetime import date
 API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 API_BASE = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
 MODEL = os.environ.get("SIGNAL_MODEL", "anthropic/claude-haiku-4.5")
-PROMPT_VERSION = "p2"
+PROMPT_VERSION = "p3"
 OUTCOME_NONE = "NONE"
-
-# field: (allowed_values list in review.yaml, safe default when the model strays)
-CLOSED_FIELDS = {
-    "study_design": ("study_design", "other"),
-    "relevance": ("relevance", "Not relevant"),
-    "intervention_tested": ("yes_no", "No"),
-    "answers_question": ("yes_no", "No"),
-    "harm_reported": ("yes_no_unclear", "Unclear"),
-    "policy_relevance": ("policy_relevance", "None"),
-}
-EVIDENCE_FIELDS = (
-    "study_design", "relevance", "outcome_touched", "intervention_tested", "answers_question",
-    "equity_relevance", "harm_reported", "new_intervention_class", "policy_relevance",
-    "countries_iso3", "sample_size",
-)
 
 
 def build_client():
@@ -61,43 +46,6 @@ def build_client():
     return complete
 
 
-def output_schema(review):
-    values = review["allowed_values"]
-    outcomes = [o["id"] for o in review["outcomes"]] + [OUTCOME_NONE]
-    enum = lambda name: {"type": "string", "enum": list(values[name])}  # noqa: E731
-    return {
-        "type": "object",
-        "additionalProperties": False,
-        "required": list(EVIDENCE_FIELDS) + ["evidence"],
-        "properties": {
-            "study_design": enum("study_design"),
-            "relevance": enum("relevance"),
-            "outcome_touched": {"type": "string", "enum": outcomes},
-            "intervention_tested": enum("yes_no"),
-            "answers_question": enum("yes_no"),
-            "equity_relevance": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": ["level", "factors"],
-                "properties": {
-                    "level": enum("equity_level"),
-                    "factors": {"type": "array", "items": enum("progress_plus")},
-                },
-            },
-            "harm_reported": enum("yes_no_unclear"),
-            "new_intervention_class": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": ["value", "class_name"],
-                "properties": {"value": enum("yes_no"), "class_name": {"type": "string"}},
-            },
-            "policy_relevance": enum("policy_relevance"),
-            "countries_iso3": {"type": "array", "items": {"type": "string"}},
-            "sample_size": {"type": ["integer", "null"]},
-            "evidence": _evidence(EVIDENCE_FIELDS),
-        },
-    }
-
 
 def _evidence(fields):
     return {
@@ -120,11 +68,9 @@ def compile_prompt(review, rules):
 
     Only a field the model or the review supplies is asked for. `values` make a closed list,
     `type: list` takes several values, `type: number` an integer or null, else free text.
-    ponytail: build_prompt and output_schema still send the older nested shape; this replaces
-    them once validate() reads the fields too.
     """
     outcomes = [o["id"] for o in review["outcomes"]] + [OUTCOME_NONE]
-    asked = [f for f in rules["fields"] if f.get("source", "model") in ("model", "review")]
+    asked = asked_fields(rules)
 
     def shape(field):
         if field.get("source") == "review":
@@ -143,6 +89,11 @@ def compile_prompt(review, rules):
     }
     meanings = "\n".join(f"- {f['id']}: {f.get('prompt') or f['label']}" for f in asked)
     return _preamble(review) + meanings, schema
+
+
+def asked_fields(rules):
+    """The fields the model answers: every field the model or the review supplies."""
+    return [f for f in rules["fields"] if f.get("source", "model") in ("model", "review")]
 
 
 def _preamble(review):
@@ -165,29 +116,11 @@ def _preamble(review):
     )
 
 
-def build_prompt(record, review):
-    """Return (system, user) text. The review supplies every list; nothing is hardcoded."""
-    system = (
-        _preamble(review)
-        + "- intervention_tested: Yes if the record evaluates an intervention.\n"
-        "- answers_question: Yes if the record's result bears on the review question above.\n"
-        "- equity_relevance.level: None, Group included (a PROGRESS-Plus group is in the sample), "
-        "or Results by factor (results are reported by a PROGRESS-Plus factor).\n"
-        "- harm_reported: Yes only if an adverse event or harm is a reported finding.\n"
-        "- new_intervention_class.value: Yes if the record tests a class not in the list above.\n"
-        "- policy_relevance: None, Some, or Direct (the record evaluates a policy or programme).\n"
-        "- countries_iso3: ISO 3166 alpha-3 codes of the study countries.\n"
-        "- sample_size: participants or units as an integer, or null."
+def record_text(record):
+    """The user turn: the record's columns, record_id first so a fixture can find it."""
+    return "\n".join(
+        f"{k}: {record.get(k, '')}" for k in ("record_id", "title", "abstract", "record_type_raw", "location", "language")
     )
-    user = (
-        f"record_id: {record['record_id']}\n"
-        f"title: {record.get('title', '')}\n"
-        f"abstract: {record.get('abstract', '')}\n"
-        f"record_type_raw: {record.get('record_type_raw', '')}\n"
-        f"location: {record.get('location', '')}\n"
-        f"language: {record.get('language', '')}"
-    )
-    return system, user
 
 
 def parse_json(text):
@@ -196,59 +129,47 @@ def parse_json(text):
     return json.loads(text[start:end + 1] if start >= 0 else text)
 
 
-def call_model(record, review, client):
-    system, user = build_prompt(record, review)
-    data = parse_json(client(system, user, output_schema(review)))
+def call_model(record, review, rules, client):
+    system, schema = compile_prompt(review, rules)
+    data = parse_json(client(system, record_text(record), schema))
     data.update(model_version=MODEL, prompt_version=PROMPT_VERSION, prompt_date=str(date.today()))
     return data
 
 
-def validate(data, record, review):
-    """Coerce every value onto its closed list. Nothing is rejected; strays are logged."""
-    values = review["allowed_values"]
+def validate(data, record, review, rules):
+    """Coerce every answer onto its field's shape. A stray value becomes untagged (None) and is logged."""
+    outcomes = {o["id"] for o in review["outcomes"]} | {OUTCOME_NONE}
     errors, missing = [], []
 
-    def pick(field, value, list_name, default):
-        if value in values[list_name]:
+    def clean(field, value):
+        allowed = set(outcomes if field.get("source") == "review" else field.get("values") or [])
+        if field.get("type") == "number":
+            return value if isinstance(value, int) and not isinstance(value, bool) else None
+        if field.get("type") == "list":
+            items = [v for v in value or [] if isinstance(v, str) and v and (not allowed or v in allowed)]
+            return list(dict.fromkeys(items))
+        if not allowed:
+            return str(value or "")
+        if value in allowed:
             return value
-        errors.append(f"{field}: {value!r}")
-        return default
+        errors.append(f"{field['id']}: {value!r}")
+        return OUTCOME_NONE if field.get("source") == "review" else None
 
     out = dict(data)
-    for field, (list_name, default) in CLOSED_FIELDS.items():
-        out[field] = pick(field, data.get(field), list_name, default)
-
-    outcomes = {o["id"] for o in review["outcomes"]}
-    if data.get("outcome_touched") not in outcomes | {OUTCOME_NONE}:
-        errors.append(f"outcome_touched: {data.get('outcome_touched')!r}")
-        out["outcome_touched"] = OUTCOME_NONE
-
-    equity = data.get("equity_relevance") or {}
-    out["equity_relevance"] = {
-        "level": pick("equity_relevance.level", equity.get("level"), "equity_level", "None"),
-        "factors": [f for f in equity.get("factors") or [] if f in values["progress_plus"]],
-    }
-    new_class = data.get("new_intervention_class") or {}
-    out["new_intervention_class"] = {
-        "value": pick("new_intervention_class.value", new_class.get("value"), "yes_no", "No"),
-        "class_name": str(new_class.get("class_name") or ""),
-    }
-    out["countries_iso3"] = sorted(
-        {c for c in data.get("countries_iso3") or [] if isinstance(c, str) and len(c) == 3 and c.isalpha()}
-    )
-    size = data.get("sample_size")
-    out["sample_size"] = size if isinstance(size, int) and not isinstance(size, bool) else None
+    fields = asked_fields(rules)
+    for field in fields:
+        out[field["id"]] = clean(field, data.get(field["id"]))
 
     # The model sees the location column too and quotes it for countries; that is fair evidence.
     haystack = " ".join(record.get(k) or "" for k in ("title", "abstract", "location")).casefold()
     evidence = data.get("evidence") or {}
     out["evidence"] = {}
-    for field in EVIDENCE_FIELDS:
-        phrase = str(evidence.get(field) or "")
+    for field in fields:
+        phrase = str(evidence.get(field["id"]) or "")
         if phrase and phrase.casefold() not in haystack:
-            missing.append(field)
+            missing.append(field["id"])
             phrase = ""
-        out["evidence"][field] = phrase
+        out["evidence"][field["id"]] = phrase
 
     out["validation_errors"] = errors
     out["evidence_missing"] = missing
@@ -256,6 +177,6 @@ def validate(data, record, review):
     return out
 
 
-def suggest(record, review, client):
+def suggest(record, review, rules, client):
     """Validated stage 2 tags for one record. Raises whatever the client raises."""
-    return validate(call_model(record, review, client), record, review)
+    return validate(call_model(record, review, rules, client), record, review, rules)

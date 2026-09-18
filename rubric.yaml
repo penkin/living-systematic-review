@@ -82,12 +82,15 @@ untagged_label: Not tagged
 # explains them; `values` is the closed list, or absent for free text and numbers.
 # `source: review` is the outcome pick, whose values are the review's outcomes.
 # `source: rules` fields are set by stage 1 or the scorer, not by the model; only the
-# label is editable. `labels` turns a value into plain words on the record page.
+# label is editable. `labels` turns a value into plain words on the record page. `help`,
+# or else `prompt`, is the sentence under a confirmable field's label there.
 fields:
   - id: record_type
     label: Record type
     source: rules
     values: [retracted, protocol, conference_abstract, commentary, preprint, systematic_review, journal_article]
+    labels: {retracted: Retracted, protocol: Protocol, conference_abstract: Conference abstract, commentary: Commentary, preprint: Preprint, systematic_review: Systematic review, journal_article: Journal article}
+    help: What kind of publication this is.
     confirmable: true
   - id: lane
     label: Lane

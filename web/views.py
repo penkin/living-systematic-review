@@ -12,7 +12,7 @@ from django.urls import reverse
 
 from signal_tool import evaluate as d7
 from signal_tool import pipeline
-from signal_tool.suggest import OUTCOME_NONE, build_client, compile_prompt
+from signal_tool.suggest import OUTCOME_NONE, asked_fields, build_client, compile_prompt
 from web import runconfig
 from web.models import Record, Rubric, Run, Tag
 from web.tasks import config, entry_for, save_result, start_run
@@ -23,33 +23,15 @@ REQUIRED_COLUMNS = ("record_id", "title", "abstract")
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
-# Reviewers, not developers, read these pages. Field ids stay in the CSV.
-LABELS = {
-    "record_type": ("Record type", "What kind of publication this is."),
-    "relevance": ("Relevance", "How closely the record matches the review question."),
-    "outcome_touched": ("Outcome", "Which review outcome the record reports on."),
-    "harm_reported": ("Harm reported", "Yes moves the record to High."),
-    "new_intervention_class": ("New kind of intervention", "Yes moves the record to High."),
-}
+# Reviewers, not developers, read these pages. Field labels come from the rubric's `fields`;
+# these are the columns the tool adds itself.
 GROUP_LABELS = {
     "lmic_setting": "Low- or middle-income setting",
     "non_english": "Not in English",
     "study_design": "Study design",
     "sample_size": "Study size",
 }
-# The tool fields the reviewers' sheet checks, in the words of the pages above.
-FIELD_LABELS = {
-    **{k: v[0] for k, v in LABELS.items()},
-    **GROUP_LABELS,
-    "lane": "Ranked or set aside",
-    "intervention_tested": "Tests an intervention",
-    "answers_question": "Answers the review question",
-    "equity_level": "Equity",
-    "policy_relevance": "Policy relevance",
-    "signal_score": "Score",
-    "outcome_certainty": "Review certainty",
-    "override_triggered": "Override",
-}
+TOOL_LABELS = {**GROUP_LABELS, "lane": "Ranked or set aside", "signal_score": "Score", "override_triggered": "Override"}
 LANE_LABELS = {"signal": "Ranked", "separate": "Set aside"}
 # A rule tag reads as a suggestion too: the reviewer has not looked at it yet.
 STATUS_WORDS = {"suggested": "Suggested", "rule": "Suggested", "confirmed": "Agreed", "overridden": "Changed"}
@@ -68,30 +50,42 @@ def _read_records(handle):
     return rows
 
 
+def _fields(rules):
+    return {f["id"]: f for f in rules["fields"]}
+
+
+def _field_labels(rules):
+    """The tool fields the reviewers' sheet checks, in the words of the pages."""
+    return {**TOOL_LABELS, **{f["id"]: f["label"] for f in rules["fields"]}}
+
+
 def _options(review, rules):
     """The closed list behind each confirm/override control."""
-    values = review["allowed_values"]
     return {
-        "record_type": list(rules["record_types"]),
-        "relevance": values["relevance"],
-        "outcome_touched": [o["id"] for o in review["outcomes"]] + [OUTCOME_NONE],
-        "harm_reported": values["yes_no_unclear"],
-        "new_intervention_class": values["yes_no"],
+        f["id"]: runconfig.field_values(f, review) + ([OUTCOME_NONE] if f.get("source") == "review" else [])
+        for f in rules["fields"]
+        if f.get("confirmable")
     }
 
 
 def _option_labels(review, rules):
-    """Plain words for the values a reviewer picks from."""
-    labels = {o["id"]: f"{o['id']} {o.get('short') or o['name']}" for o in review["outcomes"]}
-    labels[OUTCOME_NONE] = "None of the review outcomes"
-    labels.update({k: k.replace("_", " ").capitalize() for k in rules["record_types"]})
-    return labels
+    """Plain words per field for the values a reviewer picks from or reads."""
+    outcomes = {o["id"]: f"{o['id']} {o.get('short') or o['name']}" for o in review["outcomes"]}
+    outcomes[OUTCOME_NONE] = "None of the review outcomes"
+    def labels(field):
+        if field.get("source") == "review":
+            return outcomes
+        # A rules field saved before labels existed still reads as words, not ids.
+        fallback = {v: str(v).replace("_", " ").capitalize() for v in field.get("values") or []} if field.get("source") == "rules" else {}
+        return field.get("labels") or fallback
+
+    return {f["id"]: labels(f) for f in rules["fields"]}
 
 
 def _value_labels(review, rules):
     """Plain words per tool field for the values the hand sheet compares."""
-    labels = {c["source_field"]: c["value_labels"] for c in rules["criteria"].values() if "value_labels" in c and "source_field" in c}
-    labels["outcome_touched"] = _option_labels(review, rules)
+    labels = {k: v for k, v in _option_labels(review, rules).items() if v}
+    labels.update({c["source_field"]: c["value_labels"] for c in rules["criteria"].values() if "value_labels" in c and "source_field" in c})
     labels["lane"] = LANE_LABELS
     labels["override_triggered"] = {"": "None", **{o["name"]: o["label"] for o in rules["overrides"]}}
     return labels
@@ -117,7 +111,7 @@ def _hand_label(cell, value_labels):
 
 def _lmic_text(row, tags, rules, ref):
     """How the setting was decided: each country, its World Bank group, where the country came from, and the groups that count."""
-    head = rules["criteria"]["B"]["value_labels"].get(row["lmic_setting"], row["lmic_setting"])
+    head = _fields(rules).get("lmic_setting", {}).get("labels", {}).get(row["lmic_setting"], row["lmic_setting"])
     codes = row.get("countries") or []
     if not codes:
         return f"{head}. No country found in the title, abstract or location, and the model suggested none."
@@ -168,7 +162,7 @@ def _summary(run, rows, rules):
 
 def run_list(request):
     runs = []
-    for run in Run.objects.order_by("-created"):
+    for run in Run.objects.select_related("rubric").order_by("-created"):
         review, rules, ref = config(run)
         runs.append({**_summary(run, _rows(run), rules), "rubric_version": rules["rubric_version"], "review_id": review["review_id"]})
     # ponytail: one query set per run; an aggregate query when the list grows past a few hundred runs.
@@ -183,11 +177,11 @@ def run_list(request):
 
 
 def upload(request):
-    """The run stores the two files as they are, so its pages and confirms keep the rules it was ranked by."""
-    review, rules, _ = config()
+    """The run copies the chosen rubric's two texts, so its pages and confirms keep the rules it was ranked by."""
+    rubrics = _rubrics()
 
     def form(error=None, status=200):
-        return render(request, "upload.html", {"error": error}, status=status)
+        return render(request, "upload.html", {"error": error, "rubrics": rubrics}, status=status)
 
     if request.method != "POST":
         return form()
@@ -199,6 +193,10 @@ def upload(request):
     if upload_file.size > MAX_UPLOAD_BYTES:
         return form("That file is too large.", 400)
 
+    rubric = next((r["rubric"] for r in rubrics if str(r["rubric"].pk) == request.POST.get("rubric")), None)
+    if rubric is None:
+        return form("Choose a rubric.", 400)
+
     try:
         rows = _read_records(io.StringIO(upload_file.read().decode("utf-8-sig")))
     except (UnicodeDecodeError, csv.Error, ValueError) as exc:
@@ -209,7 +207,9 @@ def upload(request):
         return form("Set OPENROUTER_API_KEY in .env to tag records, then restart the server.", 400)
 
     with transaction.atomic():
-        run = Run.objects.create(filename=upload_file.name, rubric_yaml=runconfig.dump(rules), review_yaml=runconfig.dump(review))
+        run = Run.objects.create(
+            filename=upload_file.name, rubric=rubric, rubric_yaml=rubric.rubric_yaml, review_yaml=rubric.review_yaml
+        )
         Record.objects.bulk_create(
             Record(run=run, **{f: (row.get(f) or "").strip() for f in Record.INPUT_FIELDS}) for row in rows
         )
@@ -224,8 +224,8 @@ def run_settings(request, run_id, name):
     return HttpResponse(text, content_type="text/plain; charset=utf-8")
 
 
-def rubric_list(request):
-    """Every saved rubric. The first visit stores the two files on disk as the first one."""
+def _rubrics():
+    """Every saved rubric with its version. The first call stores the two files on disk as the first one."""
     if not Rubric.objects.exists():
         review, rules, _ = config()
         _new_rubric(review["review_id"], review, rules)
@@ -233,7 +233,11 @@ def rubric_list(request):
     for rubric in Rubric.objects.all():
         review, rules, _ = config(rubric)
         rubrics.append({"rubric": rubric, "version": rules["rubric_version"], "review_id": review["review_id"], "criteria": len(rules["criteria"])})
-    return render(request, "rubric_list.html", {"rubrics": rubrics})
+    return rubrics
+
+
+def rubric_list(request):
+    return render(request, "rubric_list.html", {"rubrics": _rubrics()})
 
 
 def _new_rubric(name, review, rules):
@@ -303,7 +307,10 @@ def run_detail(request, run_id):
     )
     # SPEC.md section 3: the separate lane is not a signal decision. These records
     # stay visible and never get a score.
-    uncertainty = rules["criteria"]["G"]
+    uncertainty = next(
+        (r for r in rules["criteria"].values() if r.get("source_field") == "outcome_certainty"),
+        {"scores": {}, "default": 0, "max": 0},
+    )
     return render(
         request,
         "run_detail.html",
@@ -331,22 +338,31 @@ def record_detail(request, run_id, record_id):
         row = {**record.as_dict(), "lane": tags.get("lane", {}).get("value", "signal"), "country_names": []}
     else:
         row = result.detail
+    fields = _fields(rules)
     options = _options(review, rules)
     option_labels = _option_labels(review, rules)
+
+    def shown(field):
+        """A tag's value in the rubric's plain words; a list joined with commas."""
+        value = tags.get(field, {}).get("value")
+        labels = option_labels[field]
+        if isinstance(value, list):
+            return ", ".join(str(labels.get(v, v)) for v in value)
+        return labels.get(value, value)
 
     checks = [
         {
             "field": field,
-            "label": LABELS[field][0],
-            "help": LABELS[field][1],
+            "label": fields[field]["label"],
+            "help": fields[field].get("help") or fields[field].get("prompt", ""),
             "value": tags[field]["value"],
-            "value_label": option_labels.get(tags[field]["value"], tags[field]["value"]),
+            "value_label": shown(field),
             "status_word": STATUS_WORDS[tags[field]["status"]],
             "status": tags[field]["status"],
             "evidence": tags[field]["evidence"],
-            "options": [(v, option_labels.get(v, v)) for v in options[field] if v != tags[field]["value"]],
+            "options": [(v, option_labels[field].get(v, v)) for v in options[field] if v != tags[field]["value"]],
         }
-        for field in pipeline.CONFIRMABLE
+        for field in pipeline.confirmable(rules)
         if field in tags
     ]
 
@@ -355,14 +371,13 @@ def record_detail(request, run_id, record_id):
             return None
         return {"label": label, "text": text, "evidence": (tags.get(field) or {}).get("evidence", "")}
 
-    design = tags.get("study_design", {}).get("value")
-    equity = tags.get("equity_level", {}).get("value")
-    factors = tags.get("equity_factors", {}).get("value") or []
+    # The countries are shown by name from the resolver, not as the model's codes.
     facts = [
-        fact("Study design", rules["design_labels"].get(design, design), "study_design"),
-        fact("Equity", " · ".join(filter(None, [equity, ", ".join(factors)])), "equity_level"),
-        fact("Policy relevance", tags.get("policy_relevance", {}).get("value"), "policy_relevance"),
-        fact("Study size", tags.get("sample_size", {}).get("value"), "sample_size"),
+        fact(f["label"], shown(f["id"]), f["id"])
+        for f in asked_fields(rules)
+        if not f.get("confirmable") and f["id"] != "countries_iso3"
+    ]
+    facts += [
         fact("Countries", ", ".join(row["country_names"]), "countries_iso3"),
         fact(GROUP_LABELS["lmic_setting"], _lmic_text(row, tags, rules, ref) if row.get("lmic_setting") else None),
     ]
@@ -402,7 +417,7 @@ def set_tag(request, run_id, record_id):
     review, rules, ref = config(run)
     field, value = request.POST.get("field"), request.POST.get("value")
     cell = Tag.objects.filter(record__run_id=run_id, record__record_id=record_id, field=field).select_related("record").first()
-    if cell is None or field not in pipeline.CONFIRMABLE:
+    if cell is None or field not in pipeline.confirmable(rules):
         return HttpResponseBadRequest("Unknown record or field.")
     if value not in _options(review, rules)[field]:
         return HttpResponseBadRequest("Value is not on the closed list.")
@@ -418,7 +433,7 @@ def set_tag(request, run_id, record_id):
 def signals_csv(request, run_id):
     run = get_object_or_404(Run, pk=run_id)
     handle = io.StringIO()
-    pipeline.write_csv(_rows(run), handle)
+    pipeline.write_csv(_rows(run), handle, config(run)[1])
     return HttpResponse(
         handle.getvalue(),
         content_type="text/csv",
@@ -453,18 +468,18 @@ def evaluate(request, run_id):
         tags, unmapped = d7.hand_tags(hand, rules)
         levels = d7.hand_levels(rows, hand, tags, review, rules)
         context["agreement"] = d7.agreement(rows, levels, rules)
-        option_labels = _option_labels(review, rules)
+        option_labels, confirmable = _option_labels(review, rules), pipeline.confirmable(rules)
         for record in context["agreement"]["records"]:
-            record["tags"] = [option_labels.get(record[f], record[f]) for f in pipeline.CONFIRMABLE]
+            record["tags"] = [option_labels[f].get(record[f], record[f]) for f in confirmable]
         context["regret"] = d7.regret(rows, levels, rules["regret_top_n"])
-        context["labels"] = [LABELS[f][0] for f in pipeline.CONFIRMABLE]
+        context["labels"] = [_fields(rules)[f]["label"] for f in confirmable]
         context["unmatched"] = sorted(set(hand) - {r["record_id"] for r in rows})
         if unmapped or any(tags.values()):
             questions = d7.tag_agreement(rows, tags, rules)
-            value_labels = _value_labels(review, rules)
+            value_labels, field_labels = _value_labels(review, rules), _field_labels(rules)
             for question in questions["fields"]:
                 field = question["field"]
-                question["tag_label"] = FIELD_LABELS.get(field) or rules["criteria"].get(field, {}).get("name", field)
+                question["tag_label"] = field_labels.get(field) or rules["criteria"].get(field, {}).get("name", field)
             cells = {}
             for record in questions["records"]:
                 for cell in record["cells"]:

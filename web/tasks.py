@@ -19,7 +19,7 @@ from web.models import Result, Run, Tag
 
 
 def config(run=None):
-    """The review, the rules and the reference data for one run. A run without stored settings uses the files on disk."""
+    """The review, the rules and the reference data for one run or rubric. A run without stored settings uses the files on disk."""
     review = yaml.safe_load(run.review_yaml) if run and run.review_yaml else load_rules(settings.REVIEW_CONFIG)
     rules = yaml.safe_load(run.rubric_yaml) if run and run.rubric_yaml else load_rules(settings.RUBRIC_CONFIG)
     return review, rules, load_reference(settings.REFERENCE_DIR)
@@ -43,7 +43,7 @@ def process_run(run_id, client):
         )
         workers = int(os.environ.get("SIGNAL_CONCURRENCY", "8"))
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            futures = {pool.submit(suggest, card, review, client): (record, card) for record, card in zip(records, cards)}
+            futures = {pool.submit(suggest, card, review, rules, client): (record, card) for record, card in zip(records, cards)}
             for future in as_completed(futures):
                 record, card = futures[future]
                 _store(record, card, future.exception(), future, review, rules, ref)
@@ -62,7 +62,7 @@ def _store(record, card, exc, future, review, rules, ref):
         record.model_status = "unavailable" if exc else "ok"
         record.model_error = f"{type(exc).__name__}: {exc}" if exc else ""
         record.save(update_fields=["model_response", "model_status", "model_error"])
-        entry = pipeline.tags_for(card, model)
+        entry = pipeline.tags_for(card, model, rules)
         Tag.objects.bulk_create(
             Tag(record=record, field=field, **cell)
             for field, cell in entry["tags"].items()

@@ -6,7 +6,7 @@ from pathlib import Path
 import yaml
 
 from signal_tool.geography import load_reference
-from signal_tool.pipeline import COLUMNS, build_row, tags_for, write_csv
+from signal_tool.pipeline import build_row, columns, tags_for, write_csv
 from signal_tool.scoring import REASON_WORD_LIMIT
 from signal_tool.suggest import suggest
 from signal_tool.tagging import load_rules, tag
@@ -26,7 +26,7 @@ UNKNOWN = {
 def suggestion(record, client):
     """The stored model response for a record, or None when the call failed."""
     try:
-        return suggest(record, REVIEW, client)
+        return suggest(record, REVIEW, RULES, client)
     except LookupError:
         return None
 
@@ -35,7 +35,7 @@ def rows_for(records):
     """The three stages in memory: tag the batch, suggest per record, score per record."""
     records = tag(records, RULES, REVIEW, REF)
     client = FixtureClient()
-    entries = {r["record_id"]: tags_for(r, suggestion(r, client)) for r in records}
+    entries = {r["record_id"]: tags_for(r, suggestion(r, client), RULES) for r in records}
     return records, entries
 
 
@@ -49,9 +49,9 @@ class PipelineTests(unittest.TestCase):
     def test_every_record_is_in_the_output(self):
         self.assertEqual(len(self.rows), 35)
         buffer = io.StringIO()
-        write_csv(self.rows, buffer)
+        write_csv(self.rows, buffer, RULES)
         reader = csv.DictReader(io.StringIO(buffer.getvalue()))
-        self.assertEqual(tuple(reader.fieldnames), COLUMNS)
+        self.assertEqual(tuple(reader.fieldnames), columns(RULES))
         self.assertEqual(len(list(reader)), 35)
 
     def test_separate_lane_rows_have_a_reason_and_no_level(self):

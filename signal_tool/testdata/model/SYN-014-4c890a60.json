@@ -4,37 +4,35 @@
  "outcome_touched": "O7",
  "intervention_tested": "Yes",
  "answers_question": "Yes",
- "equity_relevance": {
-  "level": "Group included",
-  "factors": [
-   "Place of residence",
-   "Socioeconomic status"
-  ]
- },
+ "equity_level": "Group included",
+ "equity_factors": [
+  "Place of residence",
+  "Socioeconomic status"
+ ],
  "harm_reported": "No",
- "new_intervention_class": {
-  "value": "No",
-  "class_name": ""
- },
+ "new_intervention_class": "No",
+ "new_class_name": "",
  "policy_relevance": "Some",
  "countries_iso3": [
   "ZAF"
  ],
  "sample_size": 96,
+ "model_version": "anthropic/claude-haiku-4.5",
+ "prompt_version": "p3",
+ "prompt_date": "2026-09-17",
  "evidence": {
   "study_design": "Ninety-six dwelling clusters in two informal settlements were randomised",
   "relevance": "informal settlements",
   "outcome_touched": "Indoor maximum temperature during the hot season was the primary outcome",
   "intervention_tested": "reflective roof coating",
   "answers_question": "Coated dwellings recorded lower indoor peak temperatures",
-  "equity_relevance": "informal settlements",
+  "equity_level": "informal settlements",
+  "equity_factors": "informal settlements",
   "harm_reported": "",
   "new_intervention_class": "",
+  "new_class_name": "",
   "policy_relevance": "first randomised evaluation of the intervention in an African setting",
   "countries_iso3": "Cape Town, South Africa",
   "sample_size": "Ninety-six dwelling clusters"
- },
- "model_version": "anthropic/claude-haiku-4.5",
- "prompt_version": "p2",
- "prompt_date": "2026-09-17"
+ }
 }

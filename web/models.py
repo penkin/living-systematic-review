@@ -16,6 +16,8 @@ class Run(models.Model):
     # which is what every run made before these columns existed used.
     rubric_yaml = models.TextField(blank=True)
     review_yaml = models.TextField(blank=True)
+    # Which saved rubric the text above was copied from. Null for a run made before rubrics existed.
+    rubric = models.ForeignKey("Rubric", null=True, blank=True, on_delete=models.SET_NULL, related_name="runs")
 
 
 class Rubric(models.Model):
