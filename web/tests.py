@@ -334,6 +334,11 @@ class RunListTests(WebTestCase):
         self.assertContains(page, 'href="/new/"')
         self.assertContains(self.client.get(f"/run/{first.pk}/rubric.yaml"), "rubric_version: v0")
 
+    def test_the_page_follows_the_system_theme_until_the_reviewer_picks_one(self):
+        page = self.client.get("/")
+        self.assertContains(page, '<html lang="en">')
+        self.assertContains(page, "data-theme-select")
+
     @staticmethod
     def counts(page, run):
         """The number cells of one row of the run list: records, one per level, checked, set aside."""

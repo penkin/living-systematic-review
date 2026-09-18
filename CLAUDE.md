@@ -197,6 +197,8 @@ Reviewers, not developers, read the pages. Keep them simple.
   reads the class names from `web/templates/`, so rebuild the CSS after any template
   change and commit the built file. No CDN, no custom CSS. JavaScript is fine where a
   native control does not do the job. Today that is the poll script in `base.html`, the
+  theme select there (System, Light or Dark; the choice lives in `localStorage` and a
+  one-line script in `<head>` applies it before the first paint), the
   busy spinner on the upload form, the button that adds an outcome row, `addRow` on
   the builder page, which clones a `<template>` and gives a new criterion its own index,
   and the field dialog there: a native `<dialog>` that edits one field row, whose hidden
