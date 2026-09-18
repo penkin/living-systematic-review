@@ -276,16 +276,17 @@ def rubric_edit(request, rubric_id):
             rubric.rubric_yaml, rubric.review_yaml = runconfig.dump(rules), runconfig.dump(review)
             rubric.save()
             return redirect(reverse("rubric_edit", kwargs={"rubric_id": rubric.pk}) + "?saved=1")
-    prompt, schema = compile_prompt(review, rules)
-    context = {
-        **runconfig.form_context(review, rules, ref),
-        "rubric": rubric,
-        "error": error,
-        "saved": "saved" in request.GET,
-        "prompt": prompt,
-        "schema": json.dumps(schema, indent=2),
-    }
+    context = {**runconfig.form_context(review, rules, ref), "rubric": rubric, "error": error, "saved": "saved" in request.GET}
     return render(request, "rubric_detail.html", context, status=400 if error else 200)
+
+
+def rubric_prompt(request, rubric_id):
+    """The instructions and the answer shape the model gets, compiled from the rubric's fields."""
+    rubric = get_object_or_404(Rubric, pk=rubric_id)
+    review, rules, _ = config(rubric)
+    prompt, schema = compile_prompt(review, rules)
+    context = {"rubric": rubric, "version": rules["rubric_version"], "prompt": prompt, "schema": json.dumps(schema, indent=2)}
+    return render(request, "rubric_prompt.html", context)
 
 
 

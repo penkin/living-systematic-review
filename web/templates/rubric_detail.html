@@ -4,70 +4,73 @@
 <a class="btn btn-ghost btn-sm" href="{% url 'run_list' %}">All runs</a>
 {% endblock %}
 {% block content %}
-<form method="post" class="mx-auto flex max-w-5xl flex-col gap-4">
+<form method="post" class="mx-auto flex max-w-5xl flex-col gap-6">
   {% csrf_token %}
   <input type="hidden" name="settings" value="1">
-  <div class="flex flex-wrap items-end justify-between gap-3">
-    <div class="flex flex-wrap items-end gap-3">
-      <label class="flex flex-col gap-1"><span class="font-medium">Rubric name</span><input type="text" name="rubric_name" value="{{ rubric.name }}" required class="input"></label>
-      <label class="flex flex-col gap-1"><span class="font-medium">Rules version</span><input type="text" name="rubric_version" value="{{ rubric_version }}" class="input w-32"></label>
+  <div class="flex flex-col gap-3">
+    <div class="flex flex-wrap items-end justify-between gap-3">
+      <div class="flex flex-wrap items-end gap-3">
+        <label class="flex flex-col gap-1"><span class="font-medium">Rubric name</span><input type="text" name="rubric_name" value="{{ rubric.name }}" required class="input"></label>
+        <label class="flex flex-col gap-1"><span class="font-medium">Version</span><input type="text" name="rubric_version" value="{{ rubric_version }}" class="input w-28"></label>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <a class="btn btn-ghost" href="{% url 'rubric_prompt' rubric.pk %}">What the model is asked</a>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
     </div>
-    <div class="flex flex-wrap items-center gap-2">
-      <button type="submit" class="btn btn-primary">Save</button>
-    </div>
+    <nav class="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+      <a class="link-hover link" href="#fields">Fields</a>
+      <a class="link-hover link" href="#criteria-section">Criteria</a>
+      <a class="link-hover link" href="#levels">Levels</a>
+      <a class="link-hover link" href="#overrides-section">Overrides</a>
+      <a class="link-hover link" href="#other-rules">Other rules</a>
+      <a class="link-hover link" href="#review">The review</a>
+    </nav>
+    {% if error %}<div role="alert" class="alert alert-error"><span>{{ error }}</span></div>{% endif %}
+    {% if saved %}<div role="alert" class="alert alert-success"><span>Saved.</span></div>{% endif %}
+    <p class="text-sm text-base-content/60">This rubric is not used by a run yet. Build it here; the switch to ranking with it comes next.</p>
   </div>
-  {% if error %}<div role="alert" class="alert alert-error"><span>{{ error }}</span></div>{% endif %}
-  {% if saved %}<div role="alert" class="alert alert-success"><span>Saved.</span></div>{% endif %}
-  <p class="text-sm text-base-content/70">This rubric is not used by a run yet. Build it here; the switch to ranking with it comes next.</p>
 
-  <details class="collapse collapse-arrow bg-base-100 shadow-sm" open>
-    <summary class="collapse-title font-medium">Fields <span class="text-sm font-normal text-base-content/60">What the model is asked about each record, and what the tool works out itself.</span></summary>
-    <div class="collapse-content flex flex-col gap-2">
+  <section id="fields" class="card bg-base-100 shadow-sm">
+    <div class="card-body gap-3">
+      <h2 class="card-title">Fields</h2>
+      <p class="text-sm text-base-content/70">What the model is asked about each record, and what the tool works out itself. Save after adding a field, so the criteria and overrides below can pick it.</p>
       <div class="overflow-x-auto">
         <table class="table table-sm">
-          <thead><tr><th>Id</th><th>Label</th><th>Values</th><th>Answer</th><th>What the model is asked</th><th>Confirmable</th><th></th></tr></thead>
-          <tbody id="fields">
+          <thead><tr><th>Field</th><th>Values</th><th>What the model is asked</th><th>Confirmable</th><th></th></tr></thead>
+          <tbody id="field-rows">
             {% for f in fields %}{% include "_field_row.html" %}{% endfor %}
           </tbody>
         </table>
       </div>
       <template id="field-template">{% include "_field_row.html" with f=None %}</template>
-      <button type="button" class="btn btn-sm self-start" onclick="editField(null)">Add a field</button>
-      <p class="text-sm text-base-content/60">A confirmable field gets an Agree button and a Change to select on the record page. Save after adding a field, so the criteria and overrides below can pick it.</p>
+      <div><button type="button" class="btn btn-sm" onclick="editField(null)">Add a field</button></div>
     </div>
-  </details>
+  </section>
 
-  <details class="collapse collapse-arrow bg-base-100 shadow-sm">
-    <summary class="collapse-title font-medium">What the model is asked <span class="text-sm font-normal text-base-content/60">The instructions and the answer shape built from the fields above. Save to refresh them.</span></summary>
-    <div class="collapse-content flex flex-col gap-2">
-      <h3 class="font-medium">Instructions</h3>
-      <pre class="whitespace-pre-wrap rounded-box bg-base-200 p-3 text-sm">{{ prompt }}</pre>
-      <h3 class="font-medium">Answer shape</h3>
-      <pre class="overflow-x-auto rounded-box bg-base-200 p-3 text-xs">{{ schema }}</pre>
-    </div>
-  </details>
-
-  <details class="collapse collapse-arrow bg-base-100 shadow-sm" open>
-    <summary class="collapse-title font-medium">Criteria <span class="text-sm font-normal text-base-content/60">How a record earns points. Its total sets the level.</span></summary>
-    <div class="collapse-content flex flex-col gap-3">
-      <div id="criteria" class="grid gap-4 md:grid-cols-2">
+  <section id="criteria-section" class="card bg-base-100 shadow-sm">
+    <div class="card-body gap-3">
+      <h2 class="card-title">Criteria</h2>
+      <p class="text-sm text-base-content/70">How a record earns points. The total sets the level. Values over one field give one score. Values over several fields add up, one part per field.</p>
+      <div id="criteria" class="flex flex-col gap-4">
         {% for c in criteria %}{% include "_criterion.html" with i=forloop.counter0 %}{% endfor %}
       </div>
       <template data-index>{% include "_criterion.html" with c=None i="__i__" %}</template>
       <button type="button" class="btn btn-sm self-start" onclick="addRow(this, '#criteria')">Add a criterion</button>
     </div>
-  </details>
+  </section>
 
-  <details class="collapse collapse-arrow bg-base-100 shadow-sm">
-    <summary class="collapse-title font-medium">Levels <span class="text-sm font-normal text-base-content/60">Thresholds, the relevance caps and the next step per level.</span></summary>
-    <div class="collapse-content">
+  <section id="levels" class="card bg-base-100 shadow-sm">
+    <div class="card-body gap-3">
+      <h2 class="card-title">Levels</h2>
       {% include "_levels.html" %}
     </div>
-  </details>
+  </section>
 
-  <details class="collapse collapse-arrow bg-base-100 shadow-sm" open>
-    <summary class="collapse-title font-medium">Overrides <span class="text-sm font-normal text-base-content/60">Applied after the threshold, in this order.</span></summary>
-    <div class="collapse-content flex flex-col gap-2">
+  <section id="overrides-section" class="card bg-base-100 shadow-sm">
+    <div class="card-body gap-3">
+      <h2 class="card-title">Overrides</h2>
+      <p class="text-sm text-base-content/70">Applied after the threshold, in this order. A record whose field equals the value gets the effect.</p>
       <div class="overflow-x-auto">
         <table class="table table-sm">
           <thead><tr><th>Id</th><th>Label</th><th>Field</th><th>Equals</th><th>Effect</th><th></th></tr></thead>
@@ -79,21 +82,22 @@
       <template>{% include "_override_row.html" with o=None %}</template>
       <button type="button" class="btn btn-sm self-start" onclick="addRow(this, '#overrides')">Add an override</button>
     </div>
-  </details>
+  </section>
 
-  <details class="collapse collapse-arrow bg-base-100 shadow-sm">
-    <summary class="collapse-title font-medium">Open questions <span class="text-sm font-normal text-base-content/60">Switches, income groups and the regret check.</span></summary>
-    <div class="collapse-content flex flex-col gap-6">
+  <section id="other-rules" class="card bg-base-100 shadow-sm">
+    <div class="card-body gap-6">
+      <h2 class="card-title">Other rules</h2>
       {% include "_switches.html" %}
     </div>
-  </details>
+  </section>
 
-  <details class="collapse collapse-arrow bg-base-100 shadow-sm">
-    <summary class="collapse-title font-medium">The review <span class="text-sm font-normal text-base-content/60">Question, outcomes and their certainty.</span></summary>
-    <div class="collapse-content flex flex-col gap-6">
+  <section id="review" class="card bg-base-100 shadow-sm">
+    <div class="card-body gap-6">
+      <h2 class="card-title">The review</h2>
+      <p class="-mt-4 text-sm text-base-content/70">The question, the regions and what the review already knows about each outcome.</p>
       {% include "_review_form.html" %}
     </div>
-  </details>
+  </section>
 
   <div class="flex justify-end"><button type="submit" class="btn btn-primary">Save</button></div>
 </form>
@@ -133,7 +137,7 @@
   function saveField() {
     let row = editingRow;
     if (row === null) {
-      const rows = document.getElementById("fields");
+      const rows = document.getElementById("field-rows");
       rows.insertAdjacentHTML("beforeend", document.getElementById("field-template").innerHTML);
       row = rows.lastElementChild;
     }
@@ -146,7 +150,7 @@
     if (row.hasAttribute("data-fixed")) return;
     show("id", fieldInput(row, "id").value);
     show("values", fieldInput(row, "values").value);
-    show("type", fieldForm.elements.type.selectedOptions[0].textContent);
+    show("type", fieldForm.elements.type.value ? fieldForm.elements.type.selectedOptions[0].textContent : "");
     show("prompt", fieldInput(row, "prompt").value);
     show("confirmable", fieldInput(row, "confirmable").value === "yes" ? "Yes" : "No");
   }

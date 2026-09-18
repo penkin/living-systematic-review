@@ -448,8 +448,9 @@ class RubricTests(TestCase):
         response, rules, review = self.save(rubric, data)
         self.assertContains(response, "Saved.")
         self.assertContains(response, '<option value="cost_reported" selected>')
-        self.assertContains(response, "- cost_reported: Yes if the record reports a cost.")
-        self.assertContains(response, "&quot;cost_reported&quot;: {")
+        prompt_page = self.client.get(f"/rubrics/{rubric.pk}/prompt/")
+        self.assertContains(prompt_page, "- cost_reported: Yes if the record reports a cost.")
+        self.assertContains(prompt_page, "&quot;cost_reported&quot;: {")
         self.assertEqual(rubric.name, "Cost review")
         self.assertNotIn("D", rules["criteria"])
         self.assertEqual(

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block nav %}
+<a class="btn btn-ghost btn-sm" href="{% url 'rubric_edit' rubric.pk %}">Back to the rubric</a>
+<a class="btn btn-ghost btn-sm" href="{% url 'rubric_list' %}">All rubrics</a>
+{% endblock %}
+{% block content %}
+<div class="mx-auto flex max-w-5xl flex-col gap-4">
+  <div>
+    <h1 class="text-2xl font-bold">What the model is asked</h1>
+    <p class="mt-1 text-base-content/70">The instructions and the answer shape built from the fields of {{ rubric.name }}, version {{ version }}.</p>
+  </div>
+  <div class="card bg-base-100 shadow-sm"><div class="card-body gap-2">
+    <h2 class="card-title">Instructions</h2>
+    <pre class="whitespace-pre-wrap rounded-box bg-base-200 p-3 text-sm">{{ prompt }}</pre>
+  </div></div>
+  <div class="card bg-base-100 shadow-sm"><div class="card-body gap-2">
+    <h2 class="card-title">Answer shape</h2>
+    <pre class="overflow-x-auto rounded-box bg-base-200 p-3 text-xs">{{ schema }}</pre>
+  </div></div>
+</div>
+{% endblock %}

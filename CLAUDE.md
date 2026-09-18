@@ -64,7 +64,8 @@ The tool suggests.
   `run/<uuid>/signals.csv` the download, `run/<uuid>/evaluate/` the D7 checks,
   `run/<uuid>/rubric.yaml` and `run/<uuid>/review.yaml` the settings the run used,
   `rubrics/` the rubric builder: a table of saved rubrics, `rubrics/<uuid>/` the form that
-  edits one. The first visit to `rubrics/` stores the two files on disk as the first rubric;
+  edits one as plain sections down one page, `rubrics/<uuid>/prompt/` the compiled model
+  instructions. The first visit to `rubrics/` stores the two files on disk as the first rubric;
   "New rubric" starts an empty one and "Next version" copies a saved one with the last number in its version one higher.
   - `models.py` — five tables. `Run` (uuid, status `processing`, `done` or `failed`,
     `error`, `handsort` text, and `rubric_yaml` and `review_yaml`, the settings the run
@@ -107,7 +108,7 @@ The tool suggests.
   - `suggest.py` — stage 2, `suggest(record, review, client)`: the model call and the
     closed-list validation. `build_client()` returns None without `OPENROUTER_API_KEY`.
     `compile_prompt(review, rules)` builds the system text and the answer schema from the
-    rubric's `fields`; the builder page shows both under "What the model is asked". The
+    rubric's `fields`; the page `rubrics/<uuid>/prompt/` shows both. The
     live call still uses `build_prompt` and `output_schema`, the older nested shape, until
     `validate` reads the fields too.
   - `scoring.py` — stage 3, `score_record(tags, review, rules)`.
