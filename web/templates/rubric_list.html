@@ -6,7 +6,7 @@
 <div class="flex flex-wrap items-end justify-between gap-3">
   <div>
     <h1 class="text-2xl font-bold">Rubrics</h1>
-    <p class="mt-1 text-base-content/70">The rules a review ranks records by: the fields the model tags, the points, the levels and the overrides. A new rubric starts as a copy of the current rules.</p>
+    <p class="mt-1 text-base-content/70">The rules a review ranks records by: the fields the model tags, the points, the levels and the overrides. A new rubric starts empty. Next version copies a rubric with its version one higher, ready to change.</p>
   </div>
   <form method="post" action="{% url 'rubric_new' %}">{% csrf_token %}<button type="submit" class="btn btn-primary">New rubric</button></form>
 </div>
@@ -23,10 +23,8 @@
           <td>{{ r.review_id }}</td>
           <td class="text-center">{{ r.criteria }}</td>
           <td class="text-sm text-base-content/70">{{ r.rubric.updated|date:"j M Y H:i" }}</td>
-          <td class="text-right"><form method="post" action="{% url 'rubric_copy' r.rubric.pk %}" class="inline">{% csrf_token %}<button type="submit" class="btn btn-ghost btn-xs">Copy</button></form></td>
+          <td class="text-right"><form method="post" action="{% url 'rubric_copy' r.rubric.pk %}" class="inline">{% csrf_token %}<button type="submit" class="btn btn-ghost btn-xs">Next version</button></form></td>
         </tr>
-        {% empty %}
-        <tr><td colspan="6" class="text-base-content/70">No rubric yet. "New rubric" starts one from the current rules.</td></tr>
         {% endfor %}
       </tbody>
     </table>

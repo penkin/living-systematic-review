@@ -64,7 +64,8 @@ The tool suggests.
   `run/<uuid>/signals.csv` the download, `run/<uuid>/evaluate/` the D7 checks,
   `run/<uuid>/rubric.yaml` and `run/<uuid>/review.yaml` the settings the run used,
   `rubrics/` the rubric builder: a table of saved rubrics, `rubrics/<uuid>/` the form that
-  edits one.
+  edits one. The first visit to `rubrics/` stores the two files on disk as the first rubric;
+  "New rubric" starts an empty one and "Next version" copies a saved one with the last number in its version one higher.
   - `models.py` — five tables. `Run` (uuid, status `processing`, `done` or `failed`,
     `error`, `handsort` text, and `rubric_yaml` and `review_yaml`, the settings the run
     was ranked by as YAML text; empty means the files on disk, which is what every run
@@ -185,8 +186,10 @@ Reviewers, not developers, read the pages. Keep them simple.
   reads the class names from `web/templates/`, so rebuild the CSS after any template
   change and commit the built file. No CDN, no custom CSS. JavaScript is fine where a
   native control does not do the job. Today that is the poll script in `base.html`, the
-  busy spinner on the upload form, the button that adds an outcome row, and `addRow` on
-  the builder page, which clones a `<template>` and gives a new criterion its own index.
+  busy spinner on the upload form, the button that adds an outcome row, `addRow` on
+  the builder page, which clones a `<template>` and gives a new criterion its own index,
+  and the field dialog there: a native `<dialog>` that edits one field row, whose hidden
+  inputs are what the form posts.
 - `web/templates/_badge.html` is the one place the level colours live. Include it
   with `level=`; an empty level renders "Not ranked".
 - Plain words on screen, raw ids in the CSV. Field labels live in `LABELS` in

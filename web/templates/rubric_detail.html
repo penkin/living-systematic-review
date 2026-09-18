@@ -25,14 +25,14 @@
     <div class="collapse-content flex flex-col gap-2">
       <div class="overflow-x-auto">
         <table class="table table-sm">
-          <thead><tr><th>Id</th><th>Label</th><th>Values, comma separated</th><th>Answer</th><th>What the model is asked</th><th>Confirmable</th><th></th></tr></thead>
+          <thead><tr><th>Id</th><th>Label</th><th>Values</th><th>Answer</th><th>What the model is asked</th><th>Confirmable</th><th></th></tr></thead>
           <tbody id="fields">
             {% for f in fields %}{% include "_field_row.html" %}{% endfor %}
           </tbody>
         </table>
       </div>
-      <template>{% include "_field_row.html" with f=None %}</template>
-      <button type="button" class="btn btn-sm self-start" onclick="addRow(this, '#fields')">Add a field</button>
+      <template id="field-template">{% include "_field_row.html" with f=None %}</template>
+      <button type="button" class="btn btn-sm self-start" onclick="editField(null)">Add a field</button>
       <p class="text-sm text-base-content/60">A confirmable field gets an Agree button and a Change to select on the record page. Save after adding a field, so the criteria and overrides below can pick it.</p>
     </div>
   </details>
@@ -97,7 +97,60 @@
 
   <div class="flex justify-end"><button type="submit" class="btn btn-primary">Save</button></div>
 </form>
+
+<dialog id="field-dialog" class="modal">
+  <form method="dialog" class="modal-box flex flex-col gap-3" onsubmit="saveField()">
+    <h3 class="text-lg font-bold" data-title>Field</h3>
+    <label class="flex flex-col gap-1"><span class="font-medium">Id</span><input name="id" class="input w-full" required pattern="[A-Za-z][A-Za-z0-9_\-]*" title="Letters, digits, _ and -, starting with a letter"><span class="text-sm text-base-content/60">The column name in the CSV. Letters, digits, _ and -.</span></label>
+    <label class="flex flex-col gap-1"><span class="font-medium">Label</span><input name="label" class="input w-full" required><span class="text-sm text-base-content/60">The plain words shown on the pages.</span></label>
+    <label class="flex flex-col gap-1"><span class="font-medium">Values, comma separated</span><input name="values" class="input w-full" placeholder="Empty for free text or a number"></label>
+    <label class="flex flex-col gap-1"><span class="font-medium">Answer</span><select name="type" class="select w-full">{% for key, label in field_types.items %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label>
+    <label class="flex flex-col gap-1"><span class="font-medium">What the model is asked</span><textarea name="prompt" class="textarea w-full" rows="2"></textarea></label>
+    <label class="flex flex-col gap-1"><span class="font-medium">Confirmable</span><select name="confirmable" class="select w-full"><option value="no">No</option><option value="yes">Yes</option></select><span class="text-sm text-base-content/60">A confirmable field gets an Agree button and a Change to select on the record page.</span></label>
+    <div class="modal-action">
+      <button type="button" class="btn" onclick="this.closest('dialog').close()">Cancel</button>
+      <button type="submit" class="btn btn-primary">Done</button>
+    </div>
+  </form>
+</dialog>
 <script>
+  const fieldDialog = document.getElementById("field-dialog");
+  const fieldForm = fieldDialog.querySelector("form");
+  const FIELD_KEYS = ["id", "label", "values", "type", "prompt", "confirmable"];
+  let editingRow = null;
+  function fieldInput(row, key) { return row.querySelector(`[name=field_${key}]`); }
+  function editField(row) {
+    editingRow = row;
+    const fixed = row !== null && row.hasAttribute("data-fixed");
+    fieldDialog.querySelector("[data-title]").textContent = row ? "Edit the field" : "New field";
+    for (const key of FIELD_KEYS) {
+      const input = fieldForm.elements[key];
+      input.value = row ? fieldInput(row, key).value : (key === "confirmable" ? "no" : "");
+      input.disabled = fixed && key !== "label";
+    }
+    fieldDialog.showModal();
+  }
+  function saveField() {
+    let row = editingRow;
+    if (row === null) {
+      const rows = document.getElementById("fields");
+      rows.insertAdjacentHTML("beforeend", document.getElementById("field-template").innerHTML);
+      row = rows.lastElementChild;
+    }
+    for (const key of FIELD_KEYS) {
+      if (fieldForm.elements[key].disabled) continue;
+      fieldInput(row, key).value = fieldForm.elements[key].value;
+    }
+    const show = (key, text) => { row.querySelector(`[data-show=${key}]`).textContent = text; };
+    show("label", fieldInput(row, "label").value);
+    if (row.hasAttribute("data-fixed")) return;
+    show("id", fieldInput(row, "id").value);
+    show("values", fieldInput(row, "values").value);
+    show("type", fieldForm.elements.type.selectedOptions[0].textContent);
+    show("prompt", fieldInput(row, "prompt").value);
+    show("confirmable", fieldInput(row, "confirmable").value === "yes" ? "Yes" : "No");
+  }
+
   let nextIndex = 1000;
   function addRow(button, target) {
     const template = button.previousElementSibling;

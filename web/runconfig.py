@@ -48,6 +48,11 @@ def _score_rows(rule):
     return [(part["source_field"], value, points) for part in parts for value, points in part["scores"].items()]
 
 
+def _certainties(rules):
+    """The certainty levels an outcome can have: the values of the built-in `outcome_certainty` field."""
+    return next(f["values"] for f in rules["fields"] if f["id"] == "outcome_certainty")
+
+
 def form_context(review, rules, ref):
     fields = [
         {
@@ -102,7 +107,7 @@ def form_context(review, rules, ref):
         "update_window": review["update_window"],
         "regions": [(r, r in review["in_scope_regions"]) for r in regions],
         "outcomes": outcomes,
-        "certainties": list(rules["criteria"]["G"]["scores"]),
+        "certainties": _certainties(rules),
         "out_of_scope": "\n".join(review["out_of_scope_outcomes"]),
         "intervention_classes": "\n".join(review["intervention_classes_represented"]),
     }
@@ -180,7 +185,7 @@ def from_post(post, review, rules):
     if post.get("settings"):
         review["in_scope_regions"] = post.getlist("in_scope_regions")
     if post.getlist("outcome_id"):
-        review["outcomes"] = _outcomes(post, review["outcomes"], list(rules["criteria"]["G"]["scores"]))
+        review["outcomes"] = _outcomes(post, review["outcomes"], _certainties(rules))
     review["out_of_scope_outcomes"] = _lines(post, "out_of_scope", review["out_of_scope_outcomes"])
     review["intervention_classes_represented"] = _lines(post, "intervention_classes", review["intervention_classes_represented"])
     return review, rules
