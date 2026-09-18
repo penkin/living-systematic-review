@@ -1,71 +1,94 @@
 {% extends "base.html" %}
 {% block nav %}
-<nav>
-  <a href="{% url 'run_detail' run_id %}">Ranked records</a>
-  <a href="{% url 'signals_csv' run_id %}">Download CSV</a>
-  <a href="{% url 'upload' %}">New upload</a>
-</nav>
+<a class="btn btn-ghost btn-sm" href="{% url 'run_detail' run_id %}">Ranked records</a>
+<a class="btn btn-ghost btn-sm" href="{% url 'signals_csv' run_id %}">Download CSV</a>
+<a class="btn btn-ghost btn-sm" href="{% url 'upload' %}">New upload</a>
 {% endblock %}
 {% block content %}
-<h2>Fairness check</h2>
-<p class="help">Does the tool rank some kinds of record higher than others? Ranked records only.</p>
+<h1 class="text-2xl font-bold">Fairness check</h1>
+<p class="mt-1 text-base-content/70">Does the tool rank some kinds of record higher than others? Ranked records only.</p>
+<div class="mt-4 grid gap-4 md:grid-cols-2">
 {% for name, groups in equity %}
-<h3>{{ name }}</h3>
-<table>
-  <thead><tr><th>Group</th><th>Records</th><th>Average score</th><th>Share High</th></tr></thead>
-  <tbody>
-  {% for g in groups %}<tr><td>{{ g.group }}</td><td>{{ g.n }}</td><td>{{ g.mean_score }}</td><td>{{ g.share_high }}</td></tr>{% endfor %}
-  </tbody>
-</table>
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body">
+      <h2 class="card-title">{{ name }}</h2>
+      <table class="table table-sm">
+        <thead><tr><th>Group</th><th>Records</th><th>Average score</th><th>Share High</th></tr></thead>
+        <tbody>
+        {% for g in groups %}<tr><td>{{ g.group }}</td><td>{{ g.n }}</td><td>{{ g.mean_score }}</td><td>{{ g.share_high }}</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 {% endfor %}
+</div>
 
-<h2>Compare with your own sort</h2>
-<div class="card">
-  {% if error %}<p class="error">{{ error }}</p>{% endif %}
-  <form method="post" enctype="multipart/form-data">
-    {% csrf_token %}
-    <p><label>Your sort file<br><input type="file" name="handsort" accept=".csv,text/csv" required></label></p>
-    <p class="help">A CSV with the columns <code>record_id</code> and <code>hand_level</code>. Use HIGH, MODERATE or LOW.</p>
-    <button type="submit">Compare</button>
-  </form>
+<h1 class="mt-8 text-2xl font-bold">Compare with your own sort</h1>
+<div class="card mt-4 bg-base-100 shadow-sm">
+  <div class="card-body">
+    {% if error %}<div role="alert" class="alert alert-error"><span>{{ error }}</span></div>{% endif %}
+    <form method="post" enctype="multipart/form-data" class="flex flex-col gap-4">
+      {% csrf_token %}
+      <label class="flex flex-col gap-1">
+        <span class="font-medium">Your sort file</span>
+        <input type="file" name="handsort" accept=".csv,text/csv" required class="file-input w-full max-w-md">
+        <span class="text-sm text-base-content/60">A CSV with the columns <code>record_id</code> and <code>hand_level</code>. Use HIGH, MODERATE or LOW.</span>
+      </label>
+      <div class="card-actions"><button type="submit" class="btn btn-primary">Compare</button></div>
+    </form>
+  </div>
 </div>
 
 {% if agreement %}
-<h3>Records you rated High that the tool put outside its top {{ top_n }}</h3>
-{% if regret %}
-<table>
-  <thead><tr><th>Record</th><th>Tool rank</th><th>Tool level</th><th>Tool's reason</th></tr></thead>
-  <tbody>
-  {% for m in regret %}<tr><td>{{ m.record_id }}</td><td>{{ m.rank|default:"not ranked" }}</td><td>{% if m.signal_level %}<span class="badge {{ m.signal_level }}">{{ m.signal_level }}</span>{% else %}<span class="badge none">Not ranked</span>{% endif %}</td><td>{{ m.signal_reason }}</td></tr>{% endfor %}
-  </tbody>
-</table>
-{% else %}<p>None. Every record you rated High is in the tool's top {{ top_n }}.</p>{% endif %}
+<div class="card mt-4 bg-base-100 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title">Records you rated High that the tool put outside its top {{ top_n }}</h2>
+    {% if regret %}
+    <table class="table">
+      <thead><tr><th>Record</th><th>Tool rank</th><th>Tool level</th><th>Tool's reason</th></tr></thead>
+      <tbody>
+      {% for m in regret %}<tr><td><a class="link-hover font-medium" href="{% url 'record_detail' run_id m.record_id %}">{{ m.record_id }}</a></td><td>{{ m.rank|default:"not ranked" }}</td><td>{% include "_badge.html" with level=m.signal_level %}</td><td>{{ m.signal_reason }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p>None. Every record you rated High is in the tool's top {{ top_n }}.</p>{% endif %}
+  </div>
+</div>
 
-<h3>Agreement</h3>
-<p class="help">Rows are the tool's level. Columns are yours.</p>
-<table>
-  <thead><tr><th>Tool \ You</th>{% for hand in agreement.levels %}<th>{{ hand }}</th>{% endfor %}</tr></thead>
-  <tbody>
-  {% for tool, counts in agreement.table.items %}
-    <tr><th>{{ tool|default:"Not ranked" }}</th>{% for hand in agreement.levels %}<td>{% for h, n in counts.items %}{% if h == hand %}{{ n }}{% endif %}{% endfor %}</td>{% endfor %}</tr>
-  {% endfor %}
-  </tbody>
-</table>
+<div class="card mt-4 bg-base-100 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title">Agreement</h2>
+    <p class="text-sm text-base-content/60">Rows are the tool's level. Columns are yours.</p>
+    <table class="table w-auto">
+      <thead><tr><th>Tool level</th>{% for hand in agreement.levels %}<th>Your level: {% include "_badge.html" with level=hand %}</th>{% endfor %}</tr></thead>
+      <tbody>
+      {% for tool, counts in agreement.table.items %}
+        <tr><th>{% include "_badge.html" with level=tool %}</th>{% for hand in agreement.levels %}<td>{% for h, n in counts.items %}{% if h == hand %}{{ n }}{% endif %}{% endfor %}</td>{% endfor %}</tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
 
-<h3>Record by record</h3>
-<p class="help">Shaded rows disagree.</p>
-<div class="scroll"><table>
-  <thead><tr><th>Record</th><th>Tool</th><th>You</th>{% for label in labels %}<th>{{ label }}</th>{% endfor %}</tr></thead>
-  <tbody>
-  {% for r in agreement.records %}
-    <tr {% if not r.agree %}class="disagree"{% endif %}>
-      <td>{{ r.record_id }}</td>
-      <td>{% if r.tool_level %}<span class="badge {{ r.tool_level }}">{{ r.tool_level }}</span>{% else %}<span class="badge none">Not ranked</span>{% endif %}</td>
-      <td><span class="badge {{ r.hand_level }}">{{ r.hand_level }}</span></td>
-      {% for tag in r.tags %}<td>{{ tag }}</td>{% endfor %}
-    </tr>
-  {% endfor %}
-  </tbody>
-</table></div>
+<div class="card mt-4 bg-base-100 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title">Record by record</h2>
+    <p class="text-sm text-base-content/60">Shaded rows differ.</p>
+    <div class="overflow-x-auto">
+      <table class="table table-sm">
+        <thead><tr><th>Record</th><th>Tool level</th><th>Your level</th>{% for label in labels %}<th>{{ label }}</th>{% endfor %}</tr></thead>
+        <tbody>
+        {% for r in agreement.records %}
+          <tr {% if not r.agree %}class="bg-base-200"{% endif %}>
+            <td><a class="link-hover font-medium" href="{% url 'record_detail' run_id r.record_id %}">{{ r.record_id }}</a></td>
+            <td>{% include "_badge.html" with level=r.tool_level %}</td>
+            <td>{% include "_badge.html" with level=r.hand_level %}</td>
+            {% for tag in r.tags %}<td>{{ tag }}</td>{% endfor %}
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 {% endif %}
 {% endblock %}

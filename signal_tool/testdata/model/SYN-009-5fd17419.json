@@ -1,0 +1,39 @@
+{
+ "study_design": "cohort",
+ "relevance": "Direct",
+ "outcome_touched": "O4",
+ "intervention_tested": "Yes",
+ "answers_question": "Yes",
+ "equity_relevance": {
+  "level": "Group included",
+  "factors": [
+   "Occupation"
+  ]
+ },
+ "harm_reported": "Yes",
+ "new_intervention_class": {
+  "value": "Yes",
+  "class_name": "Rotating rest schedules"
+ },
+ "policy_relevance": "Some",
+ "countries_iso3": [
+  "TZA"
+ ],
+ "sample_size": 96,
+ "evidence": {
+  "study_design": "Core temperature and heart rate were monitored in 96 construction workers",
+  "relevance": "Physiological heat strain among construction workers in Dar es Salaam",
+  "outcome_touched": "Forty-one percent exceeded recommended physiological strain thresholds",
+  "intervention_tested": "rotating rest schedules were in place",
+  "answers_question": "heat strain among outdoor workers in African urban setting",
+  "equity_relevance": "construction workers",
+  "harm_reported": "exceeded recommended physiological strain thresholds",
+  "new_intervention_class": "rotating rest schedules",
+  "policy_relevance": "workplace heat strain management",
+  "countries_iso3": "Dar es Salaam, Tanzania",
+  "sample_size": "96 construction workers"
+ },
+ "model_version": "anthropic/claude-haiku-4.5",
+ "prompt_version": "p2",
+ "prompt_date": "2026-09-17"
+}

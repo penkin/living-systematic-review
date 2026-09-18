@@ -45,6 +45,19 @@ def _setting(tags):
     return f"{len(names)} countries"
 
 
+def _value_text(rule, tags, rules):
+    """What the record says for one criterion, in the rubric's plain words."""
+    if rule.get("zero_when_true") and tags.get(rule["zero_when_true"]):
+        return rule["zero_when_true_label"]
+    untagged = rules["untagged_label"]
+    if "parts" in rule:
+        return "; ".join(f"{p['label']}: {tags.get(p['source_field']) or untagged}" for p in rule["parts"])
+    value = tags.get(rule["source_field"])
+    if value in (None, ""):
+        return untagged
+    return str(rule.get("value_labels", {}).get(value, value))
+
+
 def _reason(fields, rules):
     prefix = rules["reason_override_prefix"]
     override = f"{prefix} {fields['override']}." if fields["override"] else ""
@@ -55,11 +68,12 @@ def _reason(fields, rules):
     # with it before any template drops it.
     candidates = [t.format(**{**fields, "override": override}) for t in templates]
     candidates += [t.format(**{**fields, "override": ""}) for t in templates]
-    for text in candidates:
-        text = " ".join(text.split())
-        if len(text.split()) <= REASON_WORD_LIMIT:
-            return text
-    return " ".join(candidates[-1].split()[:REASON_WORD_LIMIT])
+    words = next(
+        (t.split() for t in candidates if len(t.split()) <= REASON_WORD_LIMIT),
+        candidates[-1].split()[:REASON_WORD_LIMIT],
+    )
+    # The short template starts with the outcome's lowercase short name.
+    return " ".join(words)[:1].upper() + " ".join(words)[1:]
 
 
 def score_record(tags, review, rules):
@@ -71,15 +85,31 @@ def score_record(tags, review, rules):
     certainty = outcome["certainty"] if outcome else ""
     n_studies = outcome["n_studies"] if outcome else 0
 
-    scores = {c: score_from_tags(c, tags, rules) for c in "ABCDEF"}
+    studies = "study" if n_studies == 1 else "studies"
+    outcome_name = outcome.get("short", outcome["name"]) if outcome else ""
+
+    criteria = rules["criteria"]
+    scores = {c: score_from_tags(c, tags, rules) for c in criteria if c != "G"}
+    values = {c: _value_text(criteria[c], tags, rules) for c in scores}
     # SPEC.md section 4: an outcome the review does not cover, or one the table has
     # decided not to pursue, earns nothing for landing where the review is uncertain.
-    if scope_question or outcome.get("certainty_inverted"):
-        scores["G"] = 0
+    if scope_question:
+        scores["G"], values["G"] = 0, criteria["G"]["not_covered_label"]
+    elif outcome.get("certainty_inverted"):
+        scores["G"], values["G"] = 0, criteria["G"]["not_pursued_label"]
     else:
         scores["G"] = score_from_tags("G", {"outcome_certainty": certainty}, rules)
+        values["G"] = criteria["G"]["value_template"].format(
+            outcome=outcome_name, certainty=certainty.lower(), n_studies=n_studies, studies=studies
+        )
     total = sum(scores.values())
+    signal_max = sum(rule["max"] for rule in criteria.values())
+    criteria_detail = [
+        {"criterion": c, "name": rule["name"], "value": values[c], "points": scores[c], "max": rule["max"], "help": rule["help"]}
+        for c, rule in criteria.items()
+    ]
 
+    templates = rules["level_steps"]
     high, moderate = rules["thresholds"]["high"], rules["thresholds"]["moderate"]
     if total >= high["min_total"] and scores["A"] >= high["min_A"]:
         level = "HIGH"
@@ -87,20 +117,27 @@ def score_record(tags, review, rules):
         level = "MODERATE"
     else:
         level = "LOW"
+    steps = [templates["threshold"].format(
+        total=total, max=signal_max, high_min=high["min_total"], high_min_a=high["min_A"],
+        moderate_min=moderate["min_total"], level=level.capitalize(),
+    )]
     a_cap = rules["thresholds"]["a_caps"].get(scores["A"])
     if a_cap:
         level = _cap(level, a_cap, levels)
+        steps.append(templates["a_cap"].format(a=scores["A"], cap=a_cap.capitalize()))
     level_from_threshold = level
 
     switches = rules["switches"]
     if scope_question and switches["out_of_scope_handling"] == "suppress":
         level = "LOW"
+        steps.append(templates["scope_suppressed"])
 
     regions = set(tags.get("regions") or [])
     in_scope = set(review.get("in_scope_regions") or [])
     out_of_region = bool(regions and in_scope and not regions & in_scope)
     if out_of_region and switches["out_of_region_cap"] != "none":
         level = _cap(level, switches["out_of_region_cap"], levels)
+        steps.append(templates["out_of_region"].format(cap=switches["out_of_region_cap"].capitalize()))
 
     size = tags.get("sample_size")
     if (
@@ -111,29 +148,34 @@ def score_record(tags, review, rules):
         and size >= switches["large_study_n"]
     ):
         level = "HIGH"
+        steps.append(templates["large_study"].format(n=switches["large_study_n"]))
 
     geography = set(tags.get("countries") or []) | regions
     absent = set(outcome.get("absent_contexts") or []) if outcome else set()
     tags = dict(tags, absent_context_hit="Yes" if geography & absent else "No")
 
-    triggered = []
-    if scores["A"] > 0:
-        for rule in rules["overrides"]:
-            if tags.get(rule["source_field"]) != rule["equals"]:
-                continue
-            triggered.append(rule)
-            if rule["action"] == "raise":
-                level = levels[min(levels.index(level) + 1, len(levels) - 1)]
-            else:
-                level = rule["action"]
+    matched = [r for r in rules["overrides"] if tags.get(r["source_field"]) == r["equals"]]
+    triggered = matched if scores["A"] > 0 else []
+    for rule in triggered:
+        if rule["action"] == "raise":
+            level = levels[min(levels.index(level) + 1, len(levels) - 1)]
+        else:
+            level = rule["action"]
+        steps.append(templates["override"].format(
+            label=rule["label"], effect=templates["override_effects"][rule["action"]]
+        ))
+    if matched and not triggered:
+        steps.append(templates["overrides_skipped"])
+    if scope_question:
+        steps.append(templates["scope_question"])
 
     reason = _reason(
         {
             "design": rules["design_labels"].get(tags.get("study_design"), rules["design_labels"]["other"]),
             "setting": _setting(tags),
-            "outcome": outcome.get("short", outcome["name"]) if outcome else "",
+            "outcome": outcome_name,
             "n_studies": n_studies,
-            "studies": "study" if n_studies == 1 else "studies",
+            "studies": studies,
             "certainty": certainty.lower(),
             "override": ", ".join(r["label"] for r in triggered),
             "scope_question": scope_question,
@@ -143,6 +185,9 @@ def score_record(tags, review, rules):
     return {
         **scores,
         "signal_score": total,
+        "signal_max": signal_max,
+        "criteria_detail": criteria_detail,
+        "level_steps": steps,
         "level_from_threshold": level_from_threshold,
         "override_triggered": ";".join(r["name"] for r in triggered),
         "signal_level": level,

@@ -1,19 +1,18 @@
-"""Stage 2. One cached model call per record, closed lists in, validated JSON out.
+"""Stage 2. One model call per record, closed lists in, validated JSON out.
 
-Every value here is a suggestion until a human confirms it. The cache is the demo:
-a hit never touches the network, and a miss without a client leaves the record
-visible with model_status "unavailable".
+Every value here is a suggestion until a human confirms it. The caller stores the
+validated response with the record, so a confirmation never repeats the call.
 """
 
-import hashlib
 import json
 import os
-import shutil
+import urllib.request
 from datetime import date
-from pathlib import Path
 
-MODEL = os.environ.get("SIGNAL_MODEL", "claude-haiku-4-5")
-PROMPT_VERSION = "p1"
+API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
+API_BASE = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
+MODEL = os.environ.get("SIGNAL_MODEL", "anthropic/claude-haiku-4.5")
+PROMPT_VERSION = "p2"
 OUTCOME_NONE = "NONE"
 
 # field: (allowed_values list in review.yaml, safe default when the model strays)
@@ -33,17 +32,33 @@ EVIDENCE_FIELDS = (
 
 
 def build_client():
-    """An Anthropic client when a key is present, else None. The demo runs on None."""
-    if not os.environ.get("ANTHROPIC_API_KEY"):
+    """``complete(system, user, schema) -> str`` when OPENROUTER_API_KEY is set, else None.
+
+    The endpoint is OpenAI-compatible chat completions, so OPENROUTER_BASE_URL can point
+    at any provider that speaks it. The demo runs on None.
+    """
+    if not API_KEY:
         return None
-    import anthropic
 
-    return anthropic.Anthropic()
+    def complete(system, user, schema):
+        # Some OpenRouter models reject the strict json_schema format with a bare 400, so
+        # the schema goes into the prompt and only json_object is enforced. validate() coerces.
+        system = f"{system}\n\nReply with one JSON object matching this JSON schema:\n{json.dumps(schema)}"
+        body = {
+            "model": MODEL,
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            "response_format": {"type": "json_object"},
+            "max_tokens": 1024,
+        }
+        request = urllib.request.Request(
+            f"{API_BASE}/chat/completions",
+            data=json.dumps(body).encode("utf-8"),
+            headers={"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(request, timeout=120) as response:
+            return json.load(response)["choices"][0]["message"]["content"]
 
-
-def cache_key(record):
-    digest = hashlib.sha256(((record.get("title") or "") + (record.get("abstract") or "")).encode("utf-8"))
-    return f"{record['record_id']}-{digest.hexdigest()[:8]}.json"
+    return complete
 
 
 def output_schema(review):
@@ -83,7 +98,14 @@ def output_schema(review):
                 "type": "object",
                 "additionalProperties": False,
                 "required": list(EVIDENCE_FIELDS),
-                "properties": {f: {"type": "string"} for f in EVIDENCE_FIELDS},
+                "properties": {
+                    f: {
+                        "type": "string",
+                        "description": f"A short phrase copied verbatim from the title or abstract that supports {f}, "
+                        "or an empty string. Never repeat the value itself.",
+                    }
+                    for f in EVIDENCE_FIELDS
+                },
             },
         },
     }
@@ -95,8 +117,11 @@ def build_prompt(record, review):
     system = (
         "You tag one record for a living systematic review. You suggest; a human decides. "
         "Never include or exclude a study. Pick every value from the closed lists given. "
-        "For each field copy one short phrase verbatim from the title or abstract as evidence, "
-        "or an empty string if nothing supports the value. Answer in the JSON schema only.\n\n"
+        "For each field copy one short phrase verbatim from the title or abstract into the "
+        "matching evidence slot, or an empty string if nothing supports the value. The evidence "
+        "is a quote from the text, never the value itself: "
+        '{"study_design": "cohort", ..., "evidence": {"study_design": "We followed 2,340 pregnancies", ...}}. '
+        "Answer in the JSON schema only.\n\n"
         f"Review question: {review['review_question'].strip()}\n\n"
         f"Outcomes the review tracks (use the id, or {OUTCOME_NONE} if none applies):\n{outcomes}\n\n"
         "Topics flagged out of scope (use NONE for these): "
@@ -125,16 +150,15 @@ def build_prompt(record, review):
     return system, user
 
 
+def parse_json(text):
+    """The JSON object in a model reply, with any code fence or preamble stripped."""
+    start, end = text.find("{"), text.rfind("}")
+    return json.loads(text[start:end + 1] if start >= 0 else text)
+
+
 def call_model(record, review, client):
     system, user = build_prompt(record, review)
-    response = client.messages.create(
-        model=MODEL,
-        max_tokens=1024,
-        system=system,
-        messages=[{"role": "user", "content": user}],
-        output_config={"format": {"type": "json_schema", "schema": output_schema(review)}},
-    )
-    data = json.loads(next(block.text for block in response.content if block.type == "text"))
+    data = parse_json(client(system, user, output_schema(review)))
     data.update(model_version=MODEL, prompt_version=PROMPT_VERSION, prompt_date=str(date.today()))
     return data
 
@@ -175,7 +199,8 @@ def validate(data, record, review):
     size = data.get("sample_size")
     out["sample_size"] = size if isinstance(size, int) and not isinstance(size, bool) else None
 
-    haystack = ((record.get("title") or "") + " " + (record.get("abstract") or "")).casefold()
+    # The model sees the location column too and quotes it for countries; that is fair evidence.
+    haystack = " ".join(record.get(k) or "" for k in ("title", "abstract", "location")).casefold()
     evidence = data.get("evidence") or {}
     out["evidence"] = {}
     for field in EVIDENCE_FIELDS:
@@ -191,17 +216,6 @@ def validate(data, record, review):
     return out
 
 
-def suggest(record, review, run_cache, shared_cache, client=None):
-    """Cached, validated stage 2 tags for one record, or None when no cache and no client."""
-    key = cache_key(record)
-    run_path, shared_path = Path(run_cache) / key, Path(shared_cache) / key
-    if not run_path.is_file():
-        if shared_path.is_file():
-            run_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(shared_path, run_path)
-        elif client is None:
-            return None
-        else:
-            run_path.parent.mkdir(parents=True, exist_ok=True)
-            run_path.write_text(json.dumps(call_model(record, review, client), indent=1), encoding="utf-8")
-    return validate(json.loads(run_path.read_text(encoding="utf-8")), record, review)
+def suggest(record, review, client):
+    """Validated stage 2 tags for one record. Raises whatever the client raises."""
+    return validate(call_model(record, review, client), record, review)

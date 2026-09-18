@@ -1,81 +1,55 @@
-<!doctype html>
-<html lang="en">
+{% load static %}<!doctype html>
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Update Signal{% endblock %}</title>
-<style>
-  /* One small vocabulary: three level colours, one accent, one line colour.
-     Everything on every page is built from these. */
-  :root {
-    color-scheme: light dark;
-    --high: #c2410c;
-    --moderate: #b45309;
-    --low: #6b7280;
-    --accent: #1d4ed8;
-    --line: color-mix(in srgb, currentColor 15%, transparent);
-    --soft: color-mix(in srgb, currentColor 5%, transparent);
-    --radius: 6px;
-  }
-  body { font: 16px/1.5 system-ui, sans-serif; margin: 0 auto; max-width: 64rem; padding: 1.5rem 1rem 4rem; }
-  a { color: var(--accent); }
-  h1 { font-size: 1.25rem; margin: 0; }
-  h1 a { color: inherit; text-decoration: none; }
-  h2 { font-size: 1.15rem; margin: 2rem 0 .5rem; }
-  h3 { font-size: 1rem; margin: 1.25rem 0 .25rem; }
-  p { margin: .5rem 0; }
-  small, .help { font-size: .875rem; opacity: .75; }
-  .topbar { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; padding-bottom: .75rem; border-bottom: 1px solid var(--line); }
-  .topbar nav { display: flex; gap: 1rem; font-size: .9rem; }
-
-  table { border-collapse: collapse; width: 100%; }
-  .scroll { overflow-x: auto; }
-  th, td { border-bottom: 1px solid var(--line); padding: .6rem .5rem; text-align: left; vertical-align: top; }
-  th { font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; opacity: .7; font-weight: 600; }
-  td.level { width: 6rem; }
-  td.title { width: 45%; }
-  td.title strong { font-weight: 600; }
-  tr.dim > td { opacity: .6; }
-  tr.disagree > td { background: color-mix(in srgb, var(--high) 10%, transparent); }
-
-  .badge { display: inline-block; padding: .1rem .5rem; border-radius: 999px; font-size: .8rem; font-weight: 700; color: white; white-space: nowrap; }
-  .badge.HIGH { background: var(--high); }
-  .badge.MODERATE { background: var(--moderate); }
-  .badge.LOW { background: var(--low); }
-  .badge.none { background: transparent; color: inherit; border: 1px solid var(--line); font-weight: 500; }
-
-  .pill { display: inline-block; padding: 0 .5rem; border-radius: 999px; font-size: .75rem; border: 1px solid var(--line); }
-  .pill.suggested { opacity: .7; }
-  .pill.rule { opacity: .7; }
-  .pill.confirmed { border-color: var(--accent); color: var(--accent); }
-  .pill.overridden { background: var(--accent); border-color: var(--accent); color: white; }
-
-  button, select, input[type=file] { font: inherit; }
-  button { padding: .35rem .9rem; border-radius: var(--radius); border: 1px solid var(--accent); background: var(--accent); color: white; cursor: pointer; }
-  button.quiet { background: transparent; color: var(--accent); }
-  select { padding: .3rem .4rem; border-radius: var(--radius); border: 1px solid var(--line); background: transparent; color: inherit; max-width: 100%; }
-
-  .card { border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; background: var(--soft); }
-  .error { border-left: 4px solid var(--high); padding: .5rem .75rem; }
-  .steps { display: flex; gap: 1.5rem; flex-wrap: wrap; padding: 0; margin: 1rem 0; list-style: none; counter-reset: step; }
-  .steps li { flex: 1 1 12rem; }
-  .steps li::before { counter-increment: step; content: counter(step); display: inline-grid; place-items: center; width: 1.6rem; height: 1.6rem; border-radius: 999px; background: var(--accent); color: white; font-weight: 700; margin-right: .5rem; }
-
-  details { margin: 0; }
-  summary { cursor: pointer; color: var(--accent); font-size: .9rem; list-style: none; }
-  summary::before { content: "▸ "; }
-  details[open] summary::before { content: "▾ "; }
-  .tags { display: grid; grid-template-columns: max-content 1fr; gap: .6rem 1rem; align-items: baseline; margin: 1rem 0; }
-  .tags form { display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
-  .tags q { display: block; flex-basis: 100%; }
-  .facts { display: flex; gap: .4rem 1.25rem; flex-wrap: wrap; margin: .5rem 0; }
-</style>
+<link rel="stylesheet" href="{% static 'app.css' %}">
 </head>
-<body>
-<header class="topbar">
-  <h1><a href="{% url 'upload' %}">Update Signal</a></h1>
-  {% block nav %}{% endblock %}
+<body class="min-h-screen bg-base-200 text-base-content">
+<header class="navbar bg-base-100 shadow-sm">
+  <div class="mx-auto flex w-full max-w-6xl items-center gap-2 px-2">
+    <a href="{% url 'upload' %}" class="btn btn-ghost text-lg font-bold">Update Signal</a>
+    <nav class="ml-auto flex flex-wrap justify-end gap-1">{% block nav %}{% endblock %}</nav>
+  </div>
 </header>
+<main class="mx-auto max-w-6xl p-4 pb-16 md:p-6"{% block main_attrs %}{% endblock %}>
 {% block content %}{% endblock %}
+</main>
+<script>
+// A page with data-poll is still being tagged. Swap the content in place: a full
+// reload flashes and loses the scroll position every three seconds. Elements with
+// an id (the record rows) then slide from their old position to their new one, so
+// the reviewer can follow a row as it gets ranked.
+(function () {
+  const main = document.querySelector("main");
+  if (!main.hasAttribute("data-poll")) return;
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function tops() {
+    return new Map([...main.querySelectorAll("[id]")].map((el) => [el.id, el.getBoundingClientRect().top]));
+  }
+  function slide(before) {
+    for (const [id, top] of before) {
+      const el = document.getElementById(id);
+      const dy = el ? top - el.getBoundingClientRect().top : 0;
+      if (dy) el.animate([{ transform: `translateY(${dy}px)` }, { transform: "none" }], { duration: 600, easing: "ease-in-out" });
+    }
+  }
+  function poll() {
+    fetch(location.href)
+      .then((response) => response.text())
+      .then((html) => {
+        const fresh = new DOMParser().parseFromString(html, "text/html").querySelector("main");
+        const before = tops();
+        main.innerHTML = fresh.innerHTML;
+        if (!still) slide(before);
+        main.toggleAttribute("data-poll", fresh.hasAttribute("data-poll"));
+        if (main.hasAttribute("data-poll")) setTimeout(poll, 3000);
+      })
+      .catch(() => setTimeout(poll, 3000));
+  }
+  setTimeout(poll, 3000);
+})();
+</script>
 </body>
 </html>

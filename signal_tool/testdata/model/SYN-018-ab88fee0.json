@@ -1,0 +1,37 @@
+{
+ "study_design": "cohort",
+ "relevance": "Direct",
+ "outcome_touched": "O2",
+ "intervention_tested": "No",
+ "answers_question": "Yes",
+ "equity_relevance": {
+  "level": "None",
+  "factors": []
+ },
+ "harm_reported": "No",
+ "new_intervention_class": {
+  "value": "No",
+  "class_name": ""
+ },
+ "policy_relevance": "Some",
+ "countries_iso3": [
+  "ZAF"
+ ],
+ "sample_size": null,
+ "evidence": {
+  "study_design": "Attendance records from three Durban emergency departments across six hot seasons",
+  "relevance": "linked to daily temperature",
+  "outcome_touched": "Total attendance rose modestly during declared heat events",
+  "intervention_tested": "",
+  "answers_question": "driven mainly by dehydration and cardiovascular presentations",
+  "equity_relevance": "",
+  "harm_reported": "",
+  "new_intervention_class": "",
+  "policy_relevance": "declared heat events",
+  "countries_iso3": "Durban, South Africa",
+  "sample_size": ""
+ },
+ "model_version": "anthropic/claude-haiku-4.5",
+ "prompt_version": "p2",
+ "prompt_date": "2026-09-17"
+}

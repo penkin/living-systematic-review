@@ -1,96 +1,118 @@
 {% extends "base.html" %}
+{% block main_attrs %}{% if run.status == "processing" %} data-poll{% endif %}{% endblock %}
 {% block nav %}
-<nav>
-  <a href="{% url 'evaluate' run_id %}">Checks</a>
-  <a href="{% url 'signals_csv' run_id %}">Download CSV</a>
-  <a href="{% url 'upload' %}">New upload</a>
-</nav>
+<a class="btn btn-ghost btn-sm" href="#review">Review evidence</a>
+<a class="btn btn-ghost btn-sm" href="{% url 'evaluate' run_id %}">Checks</a>
+<a class="btn btn-ghost btn-sm" href="{% url 'signals_csv' run_id %}">Download CSV</a>
+<a class="btn btn-ghost btn-sm" href="{% url 'upload' %}">New upload</a>
 {% endblock %}
 {% block content %}
-<h2>Ranked records</h2>
-<p>{{ signal|length }} ranked, {{ separate|length }} set aside.
-  <span class="help">Every tag is the tool's suggestion until you confirm it. Open a record to check its tags.</span></p>
-<p class="facts">
-  {% for level, action in legend %}<span><span class="badge {{ level }}">{{ level }}</span> {{ action }}</span>{% endfor %}
-</p>
+<h1 class="text-2xl font-bold">Ranked records</h1>
+{% if run.status == "processing" %}
+<p class="mt-1 flex items-center gap-2 text-base-content/70"><span class="loading loading-spinner loading-sm"></span> Tagged {{ tagged }} of {{ total }} records. This page updates on its own.</p>
+<progress class="progress progress-primary mt-2 w-64" value="{{ tagged }}" max="{{ total }}"></progress>
+{% else %}
+<p class="mt-1 text-base-content/70">Open a record to see how it was scored and to check its tags.</p>
+{% endif %}
 
-<table>
-  <thead><tr><th>Level</th><th>Record</th><th>Why</th><th>Next step</th></tr></thead>
-  <tbody>
-  {% for row in signal %}
-    <tr id="{{ row.record_id }}" {% if row.signal_level == low_level %}class="dim"{% endif %}>
-      <td class="level">
-        {% if row.signal_level %}<span class="badge {{ row.signal_level }}">{{ row.signal_level }}</span><br><small>{{ row.signal_score }} of 15</small>
-        {% else %}<span class="badge none">Not ranked</span>{% endif %}
-      </td>
-      <td class="title">
-        <strong>{{ row.title }}</strong><br>
-        <small>{{ row.record_id }}{% if row.year %} · {{ row.year }}{% endif %}{% if row.country_names %} · {{ row.country_names|join:", " }}{% endif %}</small>
-        <details>
-          <summary>Check the tags{% if row.changed %} · edited{% endif %}</summary>
-          <div class="tags">
-            {% for control in row.controls %}
-            <div><strong>{{ control.label }}</strong><br><small>{{ control.help }}</small></div>
-            <form method="post" action="{% url 'set_tag' run_id row.record_id %}">
-              {% csrf_token %}
-              <input type="hidden" name="field" value="{{ control.field }}">
-              <select name="value" aria-label="{{ control.label }}">
-                {% for value, text in control.options %}<option value="{{ value }}" {% if value == control.value|stringformat:"s" %}selected{% endif %}>{{ text }}</option>{% endfor %}
-              </select>
-              <button type="submit" class="quiet">Confirm</button>
-              <span class="pill {{ control.status }}">{{ control.status }}</span>
-              {% if control.evidence %}<q><small>{{ control.evidence }}</small></q>{% endif %}
-            </form>
-            {% endfor %}
-          </div>
-          <p class="facts help">
-            {% if row.criteria %}<span>Score {{ row.signal_score }} of 15:{% for name, value in row.criteria %} {{ name }}{{ value }}{% endfor %}</span>{% endif %}
-            {% if row.outcome_certainty %}<span>Review certainty {{ row.outcome_certainty|lower }}, {{ row.n_studies }} studies</span>{% endif %}
-            <span>Design {{ row.study_design }}</span>
-            <span>Low- or middle-income setting: {{ row.lmic_setting }}</span>
-            {% if row.sample_size %}<span>n = {{ row.sample_size }}</span>{% endif %}
-            {% if row.non_english %}<span>Not in English</span>{% endif %}
-            {% if row.secondary_report %}<span>Secondary report</span>{% endif %}
-            {% if row.is_duplicate %}<span>Duplicate of {{ row.duplicate_of }}</span>{% endif %}
-            {% if row.out_of_region %}<span>Outside the review's regions</span>{% endif %}
-            <span>Tagged by {{ row.model_version|default:"no model" }}</span>
-          </p>
-          {% if row.validation_errors %}<p class="error"><small>The model gave values off the list, replaced with safe defaults: {{ row.validation_errors|join:"; " }}</small></p>{% endif %}
-        </details>
-      </td>
-      <td>
-        {% if row.signal_level %}{{ row.signal_reason }}
-          {% if row.scope_question %}<br><small>Ask the team whether this outcome belongs in the review.</small>{% endif %}
-        {% else %}<span class="help">No tags for this record yet. It stays on the list.</span>{% endif %}
-      </td>
-      <td>{% if row.signal_level %}{{ row.suggested_action }}{% endif %}</td>
-    </tr>
+<div class="mt-4 flex flex-wrap gap-3">
+  <div class="stat min-w-40 flex-1 rounded-box bg-base-100 shadow-sm">
+    <div class="stat-title">Records</div>
+    <div class="stat-value">{{ total }}</div>
+    <div class="stat-desc">{% if run.status == "processing" %}{{ tagged }} tagged so far{% else %}{{ signal|length }} ranked{% endif %}</div>
+  </div>
+  {% for level, action, count in levels %}
+  <div class="stat min-w-40 flex-1 rounded-box bg-base-100 shadow-sm">
+    <div class="stat-title">{% include "_badge.html" %}</div>
+    <div class="stat-value">{{ count }}</div>
+    <div class="stat-desc">{{ action }}</div>
+  </div>
   {% endfor %}
-  </tbody>
-</table>
+  <div class="stat min-w-40 flex-1 rounded-box bg-base-100 shadow-sm">
+    <div class="stat-title">Set aside</div>
+    <div class="stat-value">{{ separate|length }}</div>
+    <div class="stat-desc">Not a signal decision</div>
+  </div>
+</div>
+{% if run.status == "failed" %}
+<div role="alert" class="alert alert-error mt-4"><span>Tagging stopped: {{ run.error }}. Upload the file again.</span></div>
+{% endif %}
 
-<h2>Set aside</h2>
-<p class="help">These records are not ranked because of their type. This is not a decision to include or exclude them. Change the type if it is wrong.</p>
-<table>
-  <thead><tr><th>Record</th><th>Why</th><th>Record type</th></tr></thead>
-  <tbody>
-  {% for row in separate %}
-    <tr id="{{ row.record_id }}">
-      <td><strong>{{ row.title }}</strong><br><small>{{ row.record_id }}{% if row.year %} · {{ row.year }}{% endif %}</small></td>
-      <td>{{ row.lane_reason }}</td>
-      <td>
-        {% for control in row.controls %}{% if control.field == "record_type" %}
-        <form method="post" action="{% url 'set_tag' run_id row.record_id %}" class="tags" style="margin:0">
-          {% csrf_token %}
-          <input type="hidden" name="field" value="record_type">
-          <select name="value" aria-label="Record type">{% for value, text in control.options %}<option value="{{ value }}" {% if value == control.value %}selected{% endif %}>{{ text }}</option>{% endfor %}</select>
-          <button type="submit" class="quiet">Confirm</button>
-          <span class="pill {{ control.status }}">{{ control.status }}</span>
-        </form>
-        {% endif %}{% endfor %}
-      </td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
+<div class="card mt-4 bg-base-100 shadow-sm">
+  <div class="overflow-x-auto">
+    <table class="table table-zebra">
+      <thead><tr><th>Level</th><th>Score</th><th>Study</th><th>Why</th><th>Next step</th></tr></thead>
+      <tbody>
+      {% for row in signal %}
+        <tr id="{{ row.record_id }}" {% if row.signal_level == low_level %}class="opacity-60"{% endif %}>
+          <td>{% if row.pending %}<span class="loading loading-spinner loading-xs" aria-label="Tagging"></span>{% else %}{% include "_badge.html" with level=row.signal_level %}{% endif %}</td>
+          <td class="whitespace-nowrap">
+            {% if row.signal_level %}
+            <span class="text-lg font-semibold">{{ row.signal_score }}</span> <span class="text-base-content/50">/ {{ row.signal_max }}</span>
+            <progress class="progress progress-primary block w-20" value="{{ row.signal_score }}" max="{{ row.signal_max }}"></progress>
+            {% endif %}
+          </td>
+          <td class="min-w-64 max-w-md">
+            <a class="link-hover font-semibold" href="{% url 'record_detail' run_id row.record_id %}">{{ row.title }}</a>
+            <div class="mt-1 text-sm text-base-content/60">
+              {{ row.record_id }}{% if row.year %} · {{ row.year }}{% endif %}{% if row.country_names %} · {{ row.country_names|join:", " }}{% endif %}
+              {% if row.changed %} <span class="badge badge-info badge-xs">checked</span>{% endif %}
+            </div>
+          </td>
+          <td class="min-w-56">
+            {% if row.signal_level %}{{ row.signal_reason }}
+              {% if row.scope_question %}<div class="mt-1 text-sm text-base-content/60">Ask the team whether this outcome belongs in the review.</div>{% endif %}
+            {% elif row.pending %}<span class="text-base-content/60">Tagging this record.</span>
+            {% else %}<span class="text-base-content/60">No response for this record yet. It stays on the list.</span>{% endif %}
+          </td>
+          <td class="whitespace-nowrap">{% if row.signal_level %}{{ row.suggested_action }}{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<h2 class="mt-8 text-xl font-bold">Set aside</h2>
+<p class="mt-1 text-base-content/70">These records are not ranked because of their type. This is not a decision to include or exclude them. Open a record to change its type.</p>
+<div class="card mt-4 bg-base-100 shadow-sm">
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead><tr><th>Study</th><th>Why</th></tr></thead>
+      <tbody>
+      {% for row in separate %}
+        <tr id="{{ row.record_id }}">
+          <td class="max-w-md">
+            <a class="link-hover font-semibold" href="{% url 'record_detail' run_id row.record_id %}">{{ row.title }}</a>
+            <div class="mt-1 text-sm text-base-content/60">{{ row.record_id }}{% if row.year %} · {{ row.year }}{% endif %}{% if row.changed %} <span class="badge badge-info badge-xs">checked</span>{% endif %}</div>
+          </td>
+          <td>{{ row.lane_reason }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<h2 id="review" class="mt-8 text-xl font-bold">What the review already knows</h2>
+<p class="mt-1 text-base-content/70">The Summary of Findings as of {{ sof_date }}. A new record earns more points the less certain the review is about the outcome it lands on.</p>
+<div class="card mt-4 bg-base-100 shadow-sm">
+  <div class="overflow-x-auto">
+    <table class="table table-zebra">
+      <thead><tr><th>Outcome</th><th>Studies</th><th>Certainty</th><th>Missing from the evidence</th><th>Points for a new record</th></tr></thead>
+      <tbody>
+      {% for o in outcomes %}
+        <tr>
+          <td><span class="font-semibold">{{ o.id }}</span> {{ o.name }}</td>
+          <td>{{ o.n_studies }}</td>
+          <td>{{ o.certainty }}</td>
+          <td>{{ o.absent_contexts|join:", " }}</td>
+          <td class="whitespace-nowrap"><span class="font-semibold">{{ o.points }}</span> <span class="text-base-content/50">/ {{ uncertainty_max }}</span></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body pt-0 text-sm text-base-content/70">Not review outcomes today, flagged by the team as possible extensions: {{ out_of_scope|join:" · " }}.</div>
+</div>
 {% endblock %}

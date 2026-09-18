@@ -1,0 +1,41 @@
+{
+ "study_design": "qualitative",
+ "relevance": "Partial",
+ "outcome_touched": "NONE",
+ "intervention_tested": "No",
+ "answers_question": "Yes",
+ "equity_relevance": {
+  "level": "Group included",
+  "factors": [
+   "Place of residence",
+   "Socioeconomic status",
+   "Occupation"
+  ]
+ },
+ "harm_reported": "No",
+ "new_intervention_class": {
+  "value": "No",
+  "class_name": ""
+ },
+ "policy_relevance": "Some",
+ "countries_iso3": [
+  "KEN"
+ ],
+ "sample_size": 48,
+ "evidence": {
+  "study_design": "48 in-depth interviews and six focus groups",
+  "relevance": "residents of two informal settlements",
+  "outcome_touched": "",
+  "intervention_tested": "",
+  "answers_question": "how households cope with extreme heat",
+  "equity_relevance": "informal settlements, cost and landlord permission were the dominant barriers, income-generating work",
+  "harm_reported": "",
+  "new_intervention_class": "",
+  "policy_relevance": "barriers to structural adaptation",
+  "countries_iso3": "Nairobi, Kenya",
+  "sample_size": "48 in-depth interviews"
+ },
+ "model_version": "anthropic/claude-haiku-4.5",
+ "prompt_version": "p2",
+ "prompt_date": "2026-09-17"
+}

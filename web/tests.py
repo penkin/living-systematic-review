@@ -1,116 +1,196 @@
 import csv
 import io
-import shutil
-import tempfile
-from pathlib import Path
+from unittest.mock import patch
 
 from django.conf import settings
-from django.test import Client, SimpleTestCase, override_settings
+from django.test import Client, TestCase
 
-GOOD = b'record_id,title,abstract\nSYN-001,Heat and preterm birth,We followed 2340 pregnancies.\n'
+from signal_tool import pipeline
+from signal_tool.suggest import MODEL
+from signal_tool.test_suggest import FixtureClient
+from web.models import Record, Result, Run
+from web.tasks import process_run
+
+# SYN-901 has no fixture, so the fixture client raises and the record stays listed but unscored.
+GOOD = b'record_id,title,abstract\nSYN-901,Heat and preterm birth,We followed 2340 pregnancies.\n'
 
 
-def cache_files():
-    return sorted(p.name for p in settings.MODEL_CACHE.iterdir())
+def failing_client(system, user, schema):
+    raise RuntimeError("model down")
 
 
-class UploadTests(SimpleTestCase):
+class WebTestCase(TestCase):
+    """Uploads are tagged inline from the fixtures: the in-memory test database is not shared across threads."""
+
     def setUp(self):
-        self.runs = Path(tempfile.mkdtemp())
-        self.addCleanup(shutil.rmtree, self.runs)
+        self.model = FixtureClient()
+        self.enterContext(patch("web.views.start_run", new=process_run))
+        self.enterContext(patch("web.views.build_client", return_value=self.model))
         self.client = Client()
 
     def post(self, body):
-        with override_settings(RUNS_DIR=self.runs):
-            return self.client.post("/", {"cards": io.BytesIO(body)}, follow=True)
+        return self.client.post("/", {"cards": io.BytesIO(body)}, follow=True)
 
+
+class UploadTests(WebTestCase):
     def test_good_csv_creates_a_run_and_lists_the_record(self):
         response = self.post(GOOD)
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "SYN-001")
-        # This title is not in the committed cache, so the record stays listed but unscored.
+        self.assertContains(response, "SYN-901")
         self.assertContains(response, "Not ranked")
-        self.assertEqual(len(list(self.runs.iterdir())), 1)
+        self.assertEqual(Run.objects.count(), 1)
+        detail = self.client.get(response.request["PATH_INFO"] + "record/SYN-901/")
+        self.assertContains(detail, "no response for this record")
+        self.assertContains(detail, "Not ranked")
+        self.assertNotContains(detail, "How the score was built")
 
     def test_missing_required_column_is_rejected(self):
-        response = self.post(b"record_id,title\nSYN-001,No abstract column\n")
+        response = self.post(b"record_id,title\nSYN-901,No abstract column\n")
         self.assertEqual(response.status_code, 400)
         self.assertContains(response, "abstract", status_code=400)
-        self.assertEqual(list(self.runs.iterdir()), [])
+        self.assertEqual(Run.objects.count(), 0)
 
     def test_header_only_is_rejected(self):
         response = self.post(b"record_id,title,abstract\n")
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(list(self.runs.iterdir()), [])
+        self.assertEqual(Run.objects.count(), 0)
+
+    def test_repeated_record_id_is_rejected(self):
+        response = self.post(GOOD + GOOD.splitlines()[1] + b"\n")
+        self.assertContains(response, "Repeated record_id: SYN-901", status_code=400)
+        self.assertEqual(Run.objects.count(), 0)
+
+    def test_no_api_key_is_rejected_before_a_run_exists(self):
+        with patch("web.views.build_client", return_value=None):
+            response = self.post(GOOD)
+        self.assertContains(response, "OPENROUTER_API_KEY", status_code=400)
+        self.assertEqual(Run.objects.count(), 0)
 
     def test_retracted_record_is_shown_in_the_separate_lane(self):
         response = self.post(
             GOOD + b"SYN-012,RETRACTED: Stroke admissions in Lagos,RETRACTED ARTICLE. Withdrawn.\n"
         )
-        self.assertContains(response, "1 ranked, 1 set aside")
+        self.assertContains(response, "1 ranked")
+        self.assertContains(response, '<div class="stat-title">Set aside</div>\n    <div class="stat-value">1</div>', html=False)
         self.assertContains(response, "Retracted by the publisher")
 
+    def test_failed_model_call_is_shown_on_the_record(self):
+        with patch("web.views.build_client", return_value=failing_client):
+            response = self.post(GOOD)
+        self.assertContains(response, "Not ranked")
+        self.assertEqual(Run.objects.get().status, Run.DONE)
+        detail = self.client.get(response.request["PATH_INFO"] + "record/SYN-901/")
+        self.assertContains(detail, "The model call failed")
+        self.assertContains(detail, "RuntimeError: model down")
+
+    def test_run_page_polls_while_tagging(self):
+        run = Run.objects.create()
+        first = Record.objects.create(run=run, record_id="A", title="Done one")
+        Record.objects.create(run=run, record_id="B", title="Waiting one")
+        Result.objects.create(record=first, signal_level="LOW", signal_score=3,
+                              detail={"record_id": "A", "title": "Done one", "lane": "signal", "signal_level": "LOW",
+                                      "signal_score": 3, "signal_max": 15, "signal_reason": "Low.", "suggested_action": "Note"})
+        page = self.client.get(f"/run/{run.pk}/")
+        self.assertContains(page, '" data-poll>')
+        self.assertContains(page, "Tagged 1 of 2 records")
+        self.assertContains(page, "loading-spinner")
+        self.assertContains(page, "Tagging this record.")
+        body = page.content.decode()
+        self.assertLess(body.index('id="A"'), body.index('id="B"'), "a tagged row sorts above a waiting one")
+
+        detail = self.client.get(f"/run/{run.pk}/record/B/")
+        self.assertContains(detail, '" data-poll>')
+        self.assertContains(detail, "Tagging this record")
+
+        run.status, run.error = Run.FAILED, "RuntimeError: boom"
+        run.save()
+        page = self.client.get(f"/run/{run.pk}/")
+        self.assertNotContains(page, '" data-poll>')
+        self.assertContains(page, "Tagging stopped: RuntimeError: boom")
+
     def test_unknown_run_is_404(self):
-        with override_settings(RUNS_DIR=self.runs):
-            response = self.client.get("/run/0198d4f3-0000-4000-8000-000000000000/")
+        response = self.client.get("/run/0198d4f3-0000-4000-8000-000000000000/")
         self.assertEqual(response.status_code, 404)
 
 
-class RunTests(SimpleTestCase):
-    """The full cards.csv, scored from the committed cache and never from a model."""
+class RunTests(WebTestCase):
+    """The full cards.csv, tagged from the fixture responses."""
 
     def setUp(self):
-        self.runs = Path(tempfile.mkdtemp())
-        self.addCleanup(shutil.rmtree, self.runs)
-        self.settings = override_settings(RUNS_DIR=self.runs)
-        self.settings.enable()
-        self.addCleanup(self.settings.disable)
-        self.client = Client()
+        super().setUp()
         with (settings.BASE_DIR / "cards.csv").open("rb") as handle:
             response = self.client.post("/", {"cards": handle})
         self.run_url = response["Location"]
         self.run_id = self.run_url.rstrip("/").rsplit("/", 1)[1]
 
     def signals(self):
-        text = (self.runs / self.run_id / "signals.csv").read_text(encoding="utf-8")
+        text = self.client.get(f"{self.run_url}signals.csv").content.decode("utf-8")
         return {row["record_id"]: row for row in csv.DictReader(io.StringIO(text))}
 
     def test_dashboard_ranks_and_keeps_every_record(self):
         response = self.client.get(self.run_url)
-        self.assertContains(response, "29 ranked, 5 set aside")
+        self.assertContains(response, "29 ranked")
+        self.assertContains(response, '<div class="stat-title">Set aside</div>\n    <div class="stat-value">5</div>')
+        self.assertContains(response, 'High</span></div>\n    <div class="stat-value">13</div>')
+        self.assertNotContains(response, '" data-poll>')
         for i in range(1, 35):
             self.assertContains(response, f'id="SYN-{i:03d}"')
         body = response.content.decode()
-        self.assertLess(body.index('id="SYN-022"'), body.index('id="SYN-002"'), "HIGH sorts before MODERATE")
+        self.assertLess(body.index('id="SYN-022"'), body.index('id="SYN-003"'), "HIGH sorts before MODERATE")
         self.assertContains(response, "Override: harm reported")
         self.assertContains(response, "Ask the team whether this outcome belongs in the review.")
-        self.assertContains(response, "Tagged by stub")
+        self.assertContains(response, "/record/SYN-022/")
+        self.assertContains(response, "What the review already knows")
+        self.assertContains(response, "Effectiveness of cooling interventions")
+        self.assertContains(response, "Childhood diarrhoeal disease")
+
+    def test_record_detail_page(self):
+        page = self.client.get(f"{self.run_url}record/SYN-022/")
+        self.assertContains(page, "How the score was built")
+        self.assertContains(page, "How the level was set")
+        self.assertContains(page, "Relevance to the review question")
+        self.assertContains(page, "One point each for testing an intervention")
+        self.assertContains(page, f"Tagged by {MODEL}")
+        self.assertContains(page, "Suggested")
+        self.assertContains(page, "Agree")
+        self.assertContains(page, "harm reported")
+
+        aside = self.client.get(f"{self.run_url}record/SYN-031/")
+        self.assertContains(aside, "Set aside")
+        self.assertNotContains(aside, "How the score was built")
+
+        self.assertEqual(self.client.get(f"{self.run_url}record/SYN-999/").status_code, 404)
 
     def test_override_rescores_without_a_model_call(self):
-        before = cache_files()
-        run_model = self.runs / self.run_id / "model"
-        model_before = sorted(p.name for p in run_model.iterdir())
-        self.assertEqual(self.signals()["SYN-002"]["signal_level"], "MODERATE")
+        record = Record.objects.get(run_id=self.run_id, record_id="SYN-003")
+        stored = record.model_response
+        self.assertEqual(self.model.calls, 34)
+        self.assertEqual(self.signals()["SYN-003"]["signal_level"], "MODERATE")
 
         response = self.client.post(
-            f"{self.run_url}record/SYN-002/tag/", {"field": "harm_reported", "value": "Yes"}
+            f"{self.run_url}record/SYN-003/tag/", {"field": "harm_reported", "value": "Yes"}
         )
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(response["Location"].endswith("#SYN-002"))
-        row = self.signals()["SYN-002"]
+        self.assertTrue(response["Location"].endswith("/record/SYN-003/#tag-harm_reported"))
+        row = self.signals()["SYN-003"]
         self.assertEqual(row["signal_level"], "HIGH")
         self.assertEqual(row["override_triggered"], "harm")
-        self.assertEqual(cache_files(), before)
-        self.assertEqual(sorted(p.name for p in run_model.iterdir()), model_before)
+        self.assertEqual(self.model.calls, 34)
+        record.refresh_from_db()
+        self.assertEqual(record.model_response, stored)
 
-        page = self.client.get(self.run_url)
-        self.assertContains(page, "overridden")
+        page = self.client.get(response["Location"])
+        self.assertContains(page, "Changed")
+        self.assertContains(page, "Override, harm reported: level set to High.")
 
     def test_confirm_keeps_the_value_and_marks_it_confirmed(self):
-        self.client.post(f"{self.run_url}record/SYN-002/tag/", {"field": "harm_reported", "value": "No"})
-        page = self.client.get(self.run_url)
-        self.assertContains(page, "confirmed")
-        self.assertEqual(self.signals()["SYN-002"]["signal_level"], "MODERATE")
+        response = self.client.post(f"{self.run_url}record/SYN-003/tag/", {"field": "harm_reported", "value": "No"})
+        page = self.client.get(response["Location"])
+        self.assertContains(page, "Agreed")
+        # Four tags still wait for a look; the agreed one has no controls left.
+        self.assertEqual(page.content.decode().count(">Agree</button>"), 4)
+        self.assertEqual(page.content.decode().count(">Change</button>"), 4)
+        self.assertEqual(self.signals()["SYN-003"]["signal_level"], "MODERATE")
 
     def test_record_type_override_moves_a_record_into_scoring(self):
         self.client.post(
@@ -121,7 +201,7 @@ class RunTests(SimpleTestCase):
         self.assertIn(row["signal_level"], ("LOW", "MODERATE", "HIGH"))
 
     def test_bad_tag_requests_are_400(self):
-        base = f"{self.run_url}record/SYN-002/tag/"
+        base = f"{self.run_url}record/SYN-003/tag/"
         self.assertEqual(self.client.post(base, {"field": "study_design", "value": "RCT"}).status_code, 400)
         self.assertEqual(self.client.post(base, {"field": "harm_reported", "value": "Maybe"}).status_code, 400)
         self.assertEqual(
@@ -133,8 +213,9 @@ class RunTests(SimpleTestCase):
         response = self.client.get(f"{self.run_url}signals.csv")
         self.assertEqual(response.status_code, 200)
         self.assertIn("signals.csv", response["Content-Disposition"])
-        text = b"".join(response.streaming_content).decode("utf-8")
-        self.assertEqual(len(list(csv.DictReader(io.StringIO(text)))), 34)
+        rows = list(csv.DictReader(io.StringIO(response.content.decode("utf-8"))))
+        self.assertEqual(len(rows), 34)
+        self.assertEqual(list(rows[0]), list(pipeline.COLUMNS))
 
     def test_evaluate_page_and_hand_sort(self):
         page = self.client.get(f"{self.run_url}evaluate/")
@@ -145,10 +226,10 @@ class RunTests(SimpleTestCase):
         bad = self.client.post(f"{self.run_url}evaluate/", {"handsort": io.BytesIO(b"record_id,level\nSYN-001,HIGH\n")})
         self.assertEqual(bad.status_code, 400)
 
-        handsort = b"record_id,hand_level\nSYN-001,HIGH\nSYN-002,LOW\nSYN-013,HIGH\nSYN-031,HIGH\n"
+        handsort = b"record_id,hand_level\nSYN-001,HIGH\nSYN-003,LOW\nSYN-013,HIGH\nSYN-031,HIGH\n"
         response = self.client.post(f"{self.run_url}evaluate/", {"handsort": io.BytesIO(handsort)}, follow=True)
         self.assertContains(response, "Record by record")
         self.assertContains(response, "outside its top")
-        self.assertContains(response, 'class="disagree"')
+        self.assertContains(response, 'class="bg-base-200"')
         # SYN-031 is separate lane, so it has no rank and is a regret miss.
         self.assertContains(response, "Not ranked")

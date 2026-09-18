@@ -14,7 +14,7 @@ Takes new records for a living systematic review, tags them, looks up how certai
 - Hide Low records. They are visible and deprioritised.
 - Infer outcome certainty. It is looked up from the review's Summary of Findings table.
 - Hardcode geography. Countries, regions, and income groups come from downloaded reference data (World Bank, UN M49).
-- Require a network connection at demo time. Model outputs are cached.
+- Repeat a model call because a human changed a tag. The validated response is stored with the record.
 
 ## 3. Information flow
 
@@ -38,7 +38,7 @@ flowchart TD
     LANE -- signal --> LLM
 
     subgraph stage2 [Stage 2 · Suggested tagging]
-        LLM["Suggested tagger<br/>one cached call per record<br/>closed lists in → validated JSON out<br/>each value carries a verbatim evidence phrase"]
+        LLM["Suggested tagger<br/>one call per record, response stored<br/>closed lists in → validated JSON out<br/>each value carries a verbatim evidence phrase"]
         GEO["Geography resolver<br/>countries = rule ∪ model<br/>regions · income levels<br/>lmic_setting Yes/No/Mixed/Unclear"]
         LLM --> GEO
     end
@@ -153,7 +153,7 @@ Notes the table must settle (H2, H3 open questions). Each is a branch in this tr
 | A–G, signal_score, signal_level | 3 | scorer from rubric config | |
 | override_triggered | 3 | scorer | |
 | signal_reason | 3 | template, ≤15 words | |
-| rubric_version, model_version, prompt_version, prompt_date, reference_date | 3 | config + cache metadata | |
+| rubric_version, model_version, prompt_version, prompt_date, reference_date | 3 | config + stored response metadata | |
 | reviewer_decision, reviewer_reason, initials, date | Human | dashboard | |
 
 ## 6. Rubric v0 as data
@@ -201,7 +201,7 @@ Fifteen-word version: every noun maps to a field. Example: *Renal outcomes under
 
 ## 10. Design constraints from the handout
 
-- Low-cost, offline-friendly, open. A small model (Haiku-class or a local 8B) is sufficient for tagging; cache every model response so the demo runs without network.
+- Low-cost, offline-friendly, open. A small model (Haiku-class or a local 8B) is sufficient for tagging; store every model response with its record so a confirmation never repeats the call.
 - The spreadsheet route must also work: the final export is a flat CSV a reviewer can sort and filter without the app.
 - Transparent over clever. Every score decomposes to criteria; every criterion maps to a field; every field has a source the reviewer can check in seconds.
 - Equity is a field and a test. The dataset is seeded with records designed to be buried by size or design weighting; the evaluation must report whether they were.
