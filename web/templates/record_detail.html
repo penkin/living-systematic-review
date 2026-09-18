@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ row.record_id }} · Update Signal{% endblock %}
+{% block main_attrs %}{% if pending %} data-poll{% endif %}{% endblock %}
 {% block nav %}
 <a class="btn btn-ghost btn-sm" href="{% url 'run_detail' run_id %}">Ranked records</a>
 <a class="btn btn-ghost btn-sm" href="{% url 'evaluate' run_id %}">Checks</a>
@@ -23,14 +24,19 @@
 </div>
 {% endif %}
 
-{% if row.lane == "separate" %}
+{% if pending %}
+<div role="alert" class="alert mt-4">
+  <span class="loading loading-spinner loading-sm"></span>
+  <span>Tagging this record. This page updates on its own.</span>
+</div>
+{% elif row.lane == "separate" %}
 <div role="alert" class="alert alert-info mt-4">
   <span><strong>Set aside:</strong> {{ row.lane_reason }}. This is not a decision to include or exclude the record. Change the record type below if it is wrong.</span>
 </div>
 {% elif unavailable %}
 <div role="alert" class="alert mt-4">
   {% include "_badge.html" with level="" %}
-  <span>The tool has no response for this record yet. It stays on the list.</span>
+  <span>The tool has no response for this record. It stays on the list.{% if model_error %} The model call failed: <code>{{ model_error }}</code>{% endif %}</span>
 </div>
 {% else %}
 <div class="stats stats-vertical mt-4 w-full bg-base-100 shadow-sm sm:stats-horizontal">

@@ -1,18 +1,17 @@
+import collections
 import csv
 import io
-import uuid
 
-import yaml
-from django.conf import settings
-from django.http import FileResponse, Http404, HttpResponseBadRequest
-from django.shortcuts import redirect, render
+from django.db import transaction
+from django.http import HttpResponse, HttpResponseBadRequest
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
 from signal_tool import evaluate as d7
 from signal_tool import pipeline
-from signal_tool.geography import load_reference
 from signal_tool.suggest import OUTCOME_NONE, build_client
-from signal_tool.tagging import load_rules
+from web.models import Record, Run, Tag
+from web.tasks import config, entry_for, save_result, start_run
 
 # SPEC.md section 9: Covidence, Rayyan and EPPI-Reviewer exports all supply these
 # three. Everything else in cards.csv is optional.
@@ -45,20 +44,10 @@ def _read_records(handle):
     missing = [c for c in REQUIRED_COLUMNS if c not in rows[0]]
     if missing:
         raise ValueError(f"Missing required column(s): {', '.join(missing)}.")
+    repeated = sorted(k for k, n in collections.Counter(r["record_id"] for r in rows).items() if n > 1)
+    if repeated:
+        raise ValueError(f"Repeated record_id: {', '.join(repeated)}.")
     return rows
-
-
-def _config():
-    """Read the review, the rubric and the reference data fresh, so an edit shows at once."""
-    review = yaml.safe_load(settings.REVIEW_CONFIG.read_text(encoding="utf-8"))
-    return review, load_rules(settings.RUBRIC_CONFIG), load_reference(settings.REFERENCE_DIR)
-
-
-def _run_dir(run_id):
-    run_dir = settings.RUNS_DIR / str(run_id)
-    if not (run_dir / "tags.json").is_file():
-        raise Http404("No such run.")
-    return run_dir
 
 
 def _options(review, rules):
@@ -81,6 +70,21 @@ def _option_labels(review, rules):
     return labels
 
 
+def _rows(run):
+    """One display row per record. A record without a Result is still being tagged."""
+    rows = []
+    for record in run.records.select_related("result").prefetch_related("tags"):
+        result = getattr(record, "result", None)
+        if result is None:
+            row = {**record.as_dict(), "signal_level": "", "signal_score": None, "lane": "signal", "pending": True}
+            row.update({t.field: t.value for t in record.tags.all()})
+        else:
+            row = dict(result.detail)
+        row["changed"] = any(t.status in ("confirmed", "overridden") for t in record.tags.all())
+        rows.append(row)
+    return rows
+
+
 def upload(request):
     if request.method != "POST":
         return render(request, "upload.html")
@@ -92,36 +96,35 @@ def upload(request):
     if upload_file.size > MAX_UPLOAD_BYTES:
         return render(request, "upload.html", {"error": "That file is too large."}, status=400)
 
-    raw = upload_file.read()
     try:
-        _read_records(io.StringIO(raw.decode("utf-8-sig")))
+        rows = _read_records(io.StringIO(upload_file.read().decode("utf-8-sig")))
     except (UnicodeDecodeError, csv.Error, ValueError) as exc:
         return render(request, "upload.html", {"error": str(exc)}, status=400)
 
-    run_id = uuid.uuid4()
-    run_dir = settings.RUNS_DIR / str(run_id)
-    run_dir.mkdir(parents=True)
-    (run_dir / "cards.csv").write_bytes(raw)
+    client = build_client()
+    if client is None:
+        error = "Set OPENROUTER_API_KEY in .env to tag records, then restart the server."
+        return render(request, "upload.html", {"error": error}, status=400)
 
-    review, rules, ref = _config()
-    pipeline.run(run_dir, review, rules, ref, settings.MODEL_CACHE, build_client())
-    return redirect("run_detail", run_id=run_id)
+    with transaction.atomic():
+        run = Run.objects.create(filename=upload_file.name)
+        Record.objects.bulk_create(
+            Record(run=run, **{f: (row.get(f) or "").strip() for f in Record.INPUT_FIELDS}) for row in rows
+        )
+    start_run(run.pk, client)
+    return redirect("run_detail", run_id=run.pk)
 
 
 def run_detail(request, run_id):
-    run_dir = _run_dir(run_id)
-    review, rules, ref = _config()
-    rows = pipeline.build_rows(run_dir, review, rules, ref)
-    tagged = pipeline.read_tags(run_dir)
-    for row in rows:
-        cells = tagged[row["record_id"]]["tags"].values()
-        row["changed"] = any(c["status"] in ("confirmed", "overridden") for c in cells)
+    run = get_object_or_404(Run, pk=run_id)
+    review, rules, ref = config()
+    rows = _rows(run)
 
-    # HIGH first, then by score. Unscored (model unavailable) rows sit last but stay listed.
+    # HIGH first, then by score. Unscored rows sit last but stay listed; rows still being tagged sit below them.
     order = {level: i for i, level in enumerate(reversed(rules["levels"]))}
     signal = sorted(
         (r for r in rows if r["lane"] == "signal"),
-        key=lambda r: (order.get(r["signal_level"], len(order)), -(r["signal_score"] or 0), r["record_id"]),
+        key=lambda r: (r.get("pending", False), order.get(r["signal_level"], len(order)), -(r["signal_score"] or 0), r["record_id"]),
     )
     # SPEC.md section 3: the separate lane is not a signal decision. These records
     # stay visible and never get a score.
@@ -131,6 +134,9 @@ def run_detail(request, run_id):
         "run_detail.html",
         {
             "run_id": run_id,
+            "run": run,
+            "total": len(rows),
+            "tagged": sum(1 for r in rows if not r.get("pending")),
             "signal": signal,
             "separate": [r for r in rows if r["lane"] == "separate"],
             "legend": [(level, rules["suggested_action"][level]) for level in reversed(rules["levels"])],
@@ -145,15 +151,14 @@ def run_detail(request, run_id):
 
 def record_detail(request, run_id, record_id):
     """One record: its score piece by piece, the level steps, and the tags to check."""
-    run_dir = _run_dir(run_id)
-    review, rules, ref = _config()
-    tagged = pipeline.read_tags(run_dir)
-    entry = tagged.get(record_id)
-    record = next((r for r in pipeline.read_cards(run_dir) if r["record_id"] == record_id), None)
-    if entry is None or record is None:
-        raise Http404("No such record.")
-    row = pipeline.build_row(record, entry, review, rules, ref)
-    tags = entry["tags"]
+    record = get_object_or_404(Record.objects.select_related("result"), run_id=run_id, record_id=record_id)
+    review, rules, ref = config()
+    tags = entry_for(record)["tags"]
+    result = getattr(record, "result", None)
+    if result is None:
+        row = {**record.as_dict(), "lane": tags.get("lane", {}).get("value", "signal"), "country_names": []}
+    else:
+        row = result.detail
     options = _options(review, rules)
     option_labels = _option_labels(review, rules)
 
@@ -187,7 +192,7 @@ def record_detail(request, run_id, record_id):
         fact("Policy relevance", tags.get("policy_relevance", {}).get("value"), "policy_relevance"),
         fact("Study size", tags.get("sample_size", {}).get("value"), "sample_size"),
         fact("Countries", ", ".join(row["country_names"]), "countries_iso3"),
-        fact(GROUP_LABELS["lmic_setting"], row["lmic_setting"]),
+        fact(GROUP_LABELS["lmic_setting"], row.get("lmic_setting")),
     ]
     flags = [
         text
@@ -210,42 +215,47 @@ def record_detail(request, run_id, record_id):
             "checks": checks,
             "facts": [f for f in facts if f],
             "flags": flags,
-            "unavailable": entry["model"]["model_status"] != "ok",
+            "pending": result is None,
+            "unavailable": result is not None and record.model_status != "ok",
+            "model_error": record.model_error,
         },
     )
 
 
 def set_tag(request, run_id, record_id):
-    """Confirm or override one of the five human-checked tags, then re-run stage 3 only."""
+    """Confirm or override one of the five human-checked tags, then re-run stage 3 for this record only."""
     if request.method != "POST":
         return HttpResponseBadRequest("POST only.")
-    run_dir = _run_dir(run_id)
-    review, rules, ref = _config()
-    tagged = pipeline.read_tags(run_dir)
+    get_object_or_404(Run, pk=run_id)
+    review, rules, ref = config()
     field, value = request.POST.get("field"), request.POST.get("value")
-    entry = tagged.get(record_id)
-    if entry is None or field not in pipeline.CONFIRMABLE or field not in entry["tags"]:
+    cell = Tag.objects.filter(record__run_id=run_id, record__record_id=record_id, field=field).select_related("record").first()
+    if cell is None or field not in pipeline.CONFIRMABLE:
         return HttpResponseBadRequest("Unknown record or field.")
     if value not in _options(review, rules)[field]:
         return HttpResponseBadRequest("Value is not on the closed list.")
 
-    cell = entry["tags"][field]
-    cell["status"] = "confirmed" if value == cell["value"] else "overridden"
-    cell["value"] = value
-    pipeline.write_tags(run_dir, tagged)
-    pipeline.rescore(run_dir, review, rules, ref)
+    cell.status = "confirmed" if value == cell.value else "overridden"
+    cell.value = value
+    cell.save(update_fields=["status", "value"])
+    save_result(cell.record, entry_for(cell.record), review, rules, ref)
     # Land on the row the reviewer just checked, not at the top of the page.
     return redirect(reverse("record_detail", args=[run_id, record_id]) + f"#tag-{field}")
 
 
 def signals_csv(request, run_id):
-    run_dir = _run_dir(run_id)
-    return FileResponse((run_dir / "signals.csv").open("rb"), as_attachment=True, filename="signals.csv")
+    run = get_object_or_404(Run, pk=run_id)
+    handle = io.StringIO()
+    pipeline.write_csv(_rows(run), handle)
+    return HttpResponse(
+        handle.getvalue(),
+        content_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="signals.csv"'},
+    )
 
 
 def evaluate(request, run_id):
-    run_dir = _run_dir(run_id)
-    handsort_path = run_dir / "handsort.csv"
+    run = get_object_or_404(Run, pk=run_id)
     error = None
     if request.method == "POST":
         upload_file = request.FILES.get("handsort")
@@ -258,15 +268,16 @@ def evaluate(request, run_id):
             except (UnicodeDecodeError, csv.Error, ValueError) as exc:
                 error = str(exc)
             else:
-                handsort_path.write_text(text, encoding="utf-8")
+                run.handsort = text
+                run.save(update_fields=["handsort"])
                 return redirect("evaluate", run_id=run_id)
 
-    review, rules, ref = _config()
-    rows = pipeline.build_rows(run_dir, review, rules, ref)
+    review, rules, ref = config()
+    rows = [r for r in _rows(run) if not r.get("pending")]
     equity = [(GROUP_LABELS.get(k, k), groups) for k, groups in d7.equity(rows, rules).items()]
     context = {"run_id": run_id, "error": error, "equity": equity, "top_n": rules["regret_top_n"]}
-    if handsort_path.is_file():
-        handsort = d7.parse_handsort(handsort_path.read_text(encoding="utf-8"))
+    if run.handsort:
+        handsort = d7.parse_handsort(run.handsort)
         context["agreement"] = d7.agreement(rows, handsort, rules)
         option_labels = _option_labels(review, rules)
         for record in context["agreement"]["records"]:

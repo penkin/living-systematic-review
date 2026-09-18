@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block main_attrs %}{% if run.status == "processing" %} data-poll{% endif %}{% endblock %}
 {% block nav %}
 <a class="btn btn-ghost btn-sm" href="#review">Review evidence</a>
 <a class="btn btn-ghost btn-sm" href="{% url 'evaluate' run_id %}">Checks</a>
@@ -9,12 +10,20 @@
 <div class="flex flex-wrap items-end justify-between gap-4">
   <div>
     <h1 class="text-2xl font-bold">Ranked records</h1>
+    {% if run.status == "processing" %}
+    <p class="mt-1 flex items-center gap-2 text-base-content/70"><span class="loading loading-spinner loading-sm"></span> Tagged {{ tagged }} of {{ total }} records. This page updates on its own.</p>
+    <progress class="progress progress-primary mt-2 w-64" value="{{ tagged }}" max="{{ total }}"></progress>
+    {% else %}
     <p class="mt-1 text-base-content/70">{{ signal|length }} ranked, {{ separate|length }} set aside. Open a record to see how it was scored and to check its tags.</p>
+    {% endif %}
   </div>
   <div class="flex flex-wrap gap-4 text-sm">
     {% for level, action in legend %}<span class="flex items-center gap-1">{% include "_badge.html" %} {{ action }}</span>{% endfor %}
   </div>
 </div>
+{% if run.status == "failed" %}
+<div role="alert" class="alert alert-error mt-4"><span>Tagging stopped: {{ run.error }}. Upload the file again.</span></div>
+{% endif %}
 
 <div class="card mt-4 bg-base-100 shadow-sm">
   <div class="overflow-x-auto">
@@ -23,7 +32,7 @@
       <tbody>
       {% for row in signal %}
         <tr id="{{ row.record_id }}" {% if row.signal_level == low_level %}class="opacity-60"{% endif %}>
-          <td>{% include "_badge.html" with level=row.signal_level %}</td>
+          <td>{% if row.pending %}<span class="loading loading-spinner loading-xs" aria-label="Tagging"></span>{% else %}{% include "_badge.html" with level=row.signal_level %}{% endif %}</td>
           <td class="whitespace-nowrap">
             {% if row.signal_level %}
             <span class="text-lg font-semibold">{{ row.signal_score }}</span> <span class="text-base-content/50">/ {{ row.signal_max }}</span>
@@ -40,6 +49,7 @@
           <td class="min-w-56">
             {% if row.signal_level %}{{ row.signal_reason }}
               {% if row.scope_question %}<div class="mt-1 text-sm text-base-content/60">Ask the team whether this outcome belongs in the review.</div>{% endif %}
+            {% elif row.pending %}<span class="text-base-content/60">Tagging this record.</span>
             {% else %}<span class="text-base-content/60">No response for this record yet. It stays on the list.</span>{% endif %}
           </td>
           <td class="whitespace-nowrap">{% if row.signal_level %}{{ row.suggested_action }}{% endif %}</td>
