@@ -1,20 +1,22 @@
-<tr>
-  <td><input type="text" name="field_id" value="{{ f.id }}" class="input input-sm w-40" aria-label="Field id"{% if f and not f.editable %} readonly{% endif %}></td>
-  <td><input type="text" name="field_label" value="{{ f.label }}" class="input input-sm w-full min-w-40" aria-label="Label"></td>
-  {% if f and not f.editable %}
-  <td><input type="text" name="field_values" value="{{ f.values_text }}" class="input input-sm w-full min-w-48" aria-label="Values" readonly></td>
-  <td class="text-sm text-base-content/60"><input type="hidden" name="field_prompt" value="">{% if f.source == "review" %}The outcomes of the review{% else %}Set by the tool, not asked of the model{% endif %}</td>
-  <td><input type="hidden" name="field_confirmable" value="{% if f.confirmable %}yes{% else %}no{% endif %}">{% if f.confirmable %}Yes{% else %}No{% endif %}</td>
-  <td></td>
-  {% else %}
-  <td><input type="text" name="field_values" value="{{ f.values_text }}" class="input input-sm w-full min-w-48" aria-label="Values" placeholder="Empty for free text or a number"></td>
-  <td><input type="text" name="field_prompt" value="{{ f.prompt }}" class="input input-sm w-full min-w-64" aria-label="What the model is asked"></td>
+<tr data-field{% if f and not f.editable %} data-fixed{% endif %}>
   <td>
-    <select name="field_confirmable" class="select select-sm" aria-label="Confirmable">
-      <option value="no"{% if not f.confirmable %} selected{% endif %}>No</option>
-      <option value="yes"{% if f.confirmable %} selected{% endif %}>Yes</option>
-    </select>
+    <input type="hidden" name="field_id" value="{{ f.id }}">
+    <input type="hidden" name="field_label" value="{{ f.label }}">
+    <input type="hidden" name="field_values" value="{{ f.values_text }}">
+    <input type="hidden" name="field_type" value="{{ f.type|default:'' }}">
+    <input type="hidden" name="field_prompt" value="{{ f.prompt|default:'' }}">
+    <input type="hidden" name="field_confirmable" value="{% if f.confirmable %}yes{% else %}no{% endif %}">
+    <div class="font-medium" data-show="label">{{ f.label }}</div>
+    <div class="font-mono text-xs text-base-content/60" data-show="id">{{ f.id }}</div>
   </td>
-  <td><button type="button" class="btn btn-ghost btn-xs" onclick="this.closest('tr').remove()" aria-label="Remove field">Remove</button></td>
-  {% endif %}
+  <td class="max-w-xs text-sm">
+    <div data-show="values">{{ f.values_text }}</div>
+    <div class="text-xs text-base-content/60" data-show="type">{% if f.type %}{% for key, label in field_types.items %}{% if key == f.type %}{{ label }}{% endif %}{% endfor %}{% endif %}</div>
+  </td>
+  <td class="max-w-sm text-sm text-base-content/70" data-show="prompt">{% if f and not f.editable %}{% if f.source == "review" %}The outcomes of the review, from the section below.{% else %}Worked out by the tool from the record. Its values are fixed in the code.{% endif %}{% else %}{{ f.prompt|default:'' }}{% endif %}</td>
+  <td data-show="confirmable">{% if f.confirmable %}Yes{% else %}No{% endif %}</td>
+  <td class="whitespace-nowrap text-right">
+    <button type="button" class="btn btn-ghost btn-xs" onclick="editField(this.closest('tr'))">Edit</button>
+    {% if not f or f.editable %}<button type="button" class="btn btn-ghost btn-xs" onclick="this.closest('tr').remove()" aria-label="Remove field">Remove</button>{% endif %}
+  </td>
 </tr>

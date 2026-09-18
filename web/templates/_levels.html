@@ -1,21 +1,37 @@
-<div>
-  <h3 class="font-semibold">Levels</h3>
-  <p class="text-sm text-base-content/60">The total score sets the level. Relevance is criterion A.</p>
-  <div class="mt-2 grid gap-3 sm:grid-cols-3">
-    <label class="flex flex-col gap-1"><span>High needs a total of at least</span><input type="number" name="high_min_total" value="{{ thresholds.high.min_total }}" min="0" required class="input"></label>
-    <label class="flex flex-col gap-1"><span>High needs relevance of at least</span><input type="number" name="high_min_a" value="{{ thresholds.high.min_A }}" min="0" required class="input"></label>
-    <label class="flex flex-col gap-1"><span>Moderate needs a total of at least</span><input type="number" name="moderate_min_total" value="{{ thresholds.moderate.min_total }}" min="0" required class="input"></label>
-  </div>
-  <div class="mt-3 grid gap-3 sm:grid-cols-3">
-    {% for a, cap in a_caps %}
-    <label class="flex flex-col gap-1"><span>Relevance of {{ a }} caps the level at</span>
-      <select name="a_cap_{{ a }}" class="select">{% for level in level_ids %}<option value="{{ level }}"{% if level == cap %} selected{% endif %}>{{ level|lower|capfirst }}</option>{% endfor %}</select>
-    </label>
-    {% endfor %}
-  </div>
-  <div class="mt-3 grid gap-3 sm:grid-cols-3">
-    {% for level, action in levels %}
-    <label class="flex flex-col gap-1"><span>Next step for {% include "_badge.html" %}</span><input type="text" name="action_{{ level }}" value="{{ action }}" class="input"></label>
-    {% endfor %}
-  </div>
+<p class="text-sm text-base-content/70">The total score sets the level, from the top row down. Relevance is criterion A.</p>
+<div class="overflow-x-auto">
+  <table class="table">
+    <thead><tr><th>Level</th><th>Needs a total of at least</th><th>Needs relevance of at least</th><th>Next step</th></tr></thead>
+    <tbody>
+      {% for level, action in levels %}
+      <tr>
+        <td>{% include "_badge.html" %}</td>
+        {% if level == "HIGH" %}
+        <td><input type="number" name="high_min_total" value="{{ thresholds.high.min_total }}" min="0" required class="input input-sm w-24" aria-label="High needs a total of at least"></td>
+        <td><input type="number" name="high_min_a" value="{{ thresholds.high.min_A }}" min="0" required class="input input-sm w-24" aria-label="High needs relevance of at least"></td>
+        {% elif level == "MODERATE" %}
+        <td><input type="number" name="moderate_min_total" value="{{ thresholds.moderate.min_total }}" min="0" required class="input input-sm w-24" aria-label="Moderate needs a total of at least"></td>
+        <td class="text-base-content/60">Any</td>
+        {% else %}
+        <td class="text-base-content/60">Everything else</td>
+        <td class="text-base-content/60">Any</td>
+        {% endif %}
+        <td><input type="text" name="action_{{ level }}" value="{{ action }}" class="input input-sm w-full min-w-40" aria-label="Next step for {{ level|lower }}"></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="overflow-x-auto">
+  <table class="table">
+    <thead><tr><th>Relevance</th><th>Caps the level at</th></tr></thead>
+    <tbody>
+      {% for a, cap in a_caps %}
+      <tr>
+        <td>{{ a }}</td>
+        <td><select name="a_cap_{{ a }}" class="select select-sm" aria-label="Relevance of {{ a }} caps the level at">{% for level in level_ids %}<option value="{{ level }}"{% if level == cap %} selected{% endif %}>{{ level|lower|capfirst }}</option>{% endfor %}</select></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>

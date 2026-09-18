@@ -1,6 +1,8 @@
 import collections
 import csv
 import io
+import json
+import re
 
 from django.conf import settings
 from django.db import transaction
@@ -10,7 +12,7 @@ from django.urls import reverse
 
 from signal_tool import evaluate as d7
 from signal_tool import pipeline
-from signal_tool.suggest import OUTCOME_NONE, build_client
+from signal_tool.suggest import OUTCOME_NONE, build_client, compile_prompt
 from web import runconfig
 from web.models import Record, Rubric, Run, Tag
 from web.tasks import config, entry_for, save_result, start_run
@@ -223,6 +225,10 @@ def run_settings(request, run_id, name):
 
 
 def rubric_list(request):
+    """Every saved rubric. The first visit stores the two files on disk as the first one."""
+    if not Rubric.objects.exists():
+        review, rules, _ = config()
+        _new_rubric(review["review_id"], review, rules)
     rubrics = []
     for rubric in Rubric.objects.all():
         review, rules, _ = config(rubric)
@@ -235,19 +241,24 @@ def _new_rubric(name, review, rules):
 
 
 def rubric_new(request):
-    """A rubric that starts as the two files on disk hold them."""
+    """An empty rubric: the built-in fields, the levels and the switches, but no criteria, overrides or outcomes."""
     if request.method != "POST":
         return redirect("rubric_list")
     review, rules, _ = config()
+    rules.update(rubric_version="v0", fields=[f for f in rules["fields"] if f.get("source", "model") != "model"], criteria={}, overrides=[])
+    review.update(review_id="", review_question="", outcomes=[], out_of_scope_outcomes=[], intervention_classes_represented=[], in_scope_regions=[])
     return redirect("rubric_edit", rubric_id=_new_rubric(request.POST.get("name", "").strip() or "New rubric", review, rules).pk)
 
 
 def rubric_copy(request, rubric_id):
+    """The next version of a rubric: the same name and rules, the last number in the version one higher."""
     source = get_object_or_404(Rubric, pk=rubric_id)
     if request.method != "POST":
         return redirect("rubric_edit", rubric_id=source.pk)
     review, rules, _ = config(source)
-    return redirect("rubric_edit", rubric_id=_new_rubric(f"Copy of {source.name}", review, rules).pk)
+    version = str(rules["rubric_version"])
+    rules["rubric_version"] = re.sub(r"(\d+)(?!.*\d)", lambda m: str(int(m[1]) + 1), version) if re.search(r"\d", version) else version + "2"
+    return redirect("rubric_edit", rubric_id=_new_rubric(source.name, review, rules).pk)
 
 
 def rubric_edit(request, rubric_id):
@@ -269,9 +280,14 @@ def rubric_edit(request, rubric_id):
     return render(request, "rubric_detail.html", context, status=400 if error else 200)
 
 
-def rubric_file(request, rubric_id, name):
+def rubric_prompt(request, rubric_id):
+    """The instructions and the answer shape the model gets, compiled from the rubric's fields."""
     rubric = get_object_or_404(Rubric, pk=rubric_id)
-    return HttpResponse(getattr(rubric, f"{name}_yaml"), content_type="text/plain; charset=utf-8")
+    review, rules, _ = config(rubric)
+    prompt, schema = compile_prompt(review, rules)
+    context = {"rubric": rubric, "version": rules["rubric_version"], "prompt": prompt, "schema": json.dumps(schema, indent=2)}
+    return render(request, "rubric_prompt.html", context)
+
 
 
 def run_detail(request, run_id):

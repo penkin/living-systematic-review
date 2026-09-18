@@ -1,20 +1,19 @@
-<div class="rounded-box border border-base-300 p-3" data-criterion>
+<div class="rounded-box border border-base-300 p-4" data-criterion>
   <input type="hidden" name="crit_index" value="{{ i }}">
-  <div class="grid gap-2 sm:grid-cols-[5rem_1fr_5rem_5rem_auto]">
+  <div class="grid gap-3 sm:grid-cols-[4rem_1fr_7rem_10rem_auto]">
     <label class="flex flex-col gap-1 text-sm">Id<input type="text" name="crit_id" value="{{ c.id }}" class="input input-sm" required aria-label="Criterion id"></label>
     <label class="flex flex-col gap-1 text-sm">Name<input type="text" name="crit_name" value="{{ c.name }}" class="input input-sm" aria-label="Criterion name"></label>
-    <label class="flex flex-col gap-1 text-sm">Max<input type="number" name="crit_max" value="{{ c.max|default_if_none:1 }}" min="0" required class="input input-sm" aria-label="Maximum points"></label>
-    <label class="flex flex-col gap-1 text-sm">Other<input type="number" name="crit_default" value="{{ c.default|default_if_none:0 }}" min="0" required class="input input-sm" aria-label="Points for any other value"></label>
+    <label class="flex flex-col gap-1 text-sm">Most points<input type="number" name="crit_max" value="{{ c.max|default_if_none:1 }}" min="0" required class="input input-sm" aria-label="Maximum points"></label>
+    <label class="flex flex-col gap-1 text-sm">Any other value<input type="number" name="crit_default" value="{{ c.default|default_if_none:0 }}" min="0" required class="input input-sm" aria-label="Points for any other value"></label>
     <button type="button" class="btn btn-ghost btn-sm self-end" onclick="this.closest('[data-criterion]').remove()">Remove</button>
   </div>
-  <label class="mt-2 flex flex-col gap-1 text-sm">What a reviewer reads beside it<input type="text" name="crit_help" value="{{ c.help }}" class="input input-sm w-full" aria-label="Help sentence"></label>
-  <table class="table table-sm mt-2">
+  <label class="mt-3 flex flex-col gap-1 text-sm">What a reviewer reads beside it<input type="text" name="crit_help" value="{{ c.help }}" class="input input-sm w-full" aria-label="Help sentence"></label>
+  <table class="table table-sm mt-3">
     <thead><tr><th>Field</th><th>Value</th><th>Points</th><th></th></tr></thead>
     <tbody data-scores>
       {% for row in c.rows %}{% include "_score_row.html" %}{% endfor %}
     </tbody>
   </table>
   <template>{% include "_score_row.html" with row=None %}</template>
-  <button type="button" class="btn btn-sm mt-1" onclick="addRow(this, '[data-scores]')">Add a value</button>
-  <p class="mt-1 text-sm text-base-content/60">Values over one field give one score. Values over several fields add up, one part per field.</p>
+  <button type="button" class="btn btn-ghost btn-sm mt-1" onclick="addRow(this, '[data-scores]')">Add a value</button>
 </div>

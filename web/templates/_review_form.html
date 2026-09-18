@@ -6,12 +6,13 @@
   </div>
 </div>
 <label class="flex flex-col gap-1"><span class="font-medium">Review question</span><textarea name="review_question" rows="4" class="textarea w-full">{{ review_question }}</textarea></label>
-<label class="flex flex-col gap-1"><span class="font-medium">Regions in scope</span>
-  <select name="in_scope_regions" multiple size="8" class="select h-auto w-full">
-    {% for region, on in regions %}<option value="{{ region }}"{% if on %} selected{% endif %}>{{ region }}</option>{% endfor %}
-  </select>
-  <span class="text-sm text-base-content/60">Hold Ctrl or Cmd to pick more than one. A record with no country in these regions takes the cap set under Scoring rules.</span>
-</label>
+<fieldset class="flex flex-col gap-2">
+  <legend class="font-medium">Regions in scope</legend>
+  <p class="text-sm text-base-content/60">A record with no country in these regions takes the cap set under Other rules.</p>
+  <div class="grid gap-1 sm:grid-cols-3">
+    {% for region, on in regions %}<label class="flex items-center gap-2 text-sm"><input type="checkbox" name="in_scope_regions" value="{{ region }}"{% if on %} checked{% endif %} class="checkbox checkbox-sm"> {{ region }}</label>{% endfor %}
+  </div>
+</fieldset>
 
 <div>
   <h3 class="font-semibold">Outcomes</h3>

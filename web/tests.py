@@ -384,8 +384,10 @@ class FormParser(HTMLParser):
 
 class RubricTests(TestCase):
     def new(self):
-        response = self.client.post("/rubrics/new/", follow=True)
-        return Rubric.objects.get(), response
+        """The rubric the list page seeds from the files, and its builder page."""
+        self.client.get("/rubrics/")
+        rubric = Rubric.objects.get()
+        return rubric, self.client.get(f"/rubrics/{rubric.pk}/")
 
     @staticmethod
     def form(response):
@@ -398,14 +400,29 @@ class RubricTests(TestCase):
         rubric.refresh_from_db()
         return response, yaml.safe_load(rubric.rubric_yaml), yaml.safe_load(rubric.review_yaml)
 
-    def test_a_new_rubric_holds_the_files(self):
+    def test_the_list_stores_the_current_rules_once(self):
         rubric, response = self.new()
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "New rubric")
+        self.client.get("/rubrics/")
+        self.assertEqual(Rubric.objects.count(), 1)
         review, rules, _ = config()
+        self.assertEqual(rubric.name, review["review_id"])
         self.assertEqual(yaml.safe_load(rubric.rubric_yaml), rules)
         self.assertEqual(yaml.safe_load(rubric.review_yaml), review)
-        self.assertEqual(self.client.get(f"/rubrics/{rubric.pk}/rubric.yaml").content.decode(), rubric.rubric_yaml)
+
+    def test_a_new_rubric_starts_empty(self):
+        self.new()
+        response = self.client.post("/rubrics/new/", follow=True)
+        rubric = Rubric.objects.get(name="New rubric")
+        rules, review = yaml.safe_load(rubric.rubric_yaml), yaml.safe_load(rubric.review_yaml)
+        self.assertEqual(rules["criteria"], {})
+        self.assertEqual(rules["overrides"], [])
+        self.assertEqual({f["source"] for f in rules["fields"]}, {"rules", "review"})
+        self.assertEqual((review["review_id"], review["outcomes"]), ("", []))
+        self.assertContains(response, "Add a criterion")
+        response, rules, review = self.save(rubric, self.form(response))
+        self.assertContains(response, "Saved.")
+        self.assertEqual((rules["criteria"], review["outcomes"]), ({}, []))
 
     def test_saving_the_form_unchanged_builds_the_same_rubric(self):
         rubric, response = self.new()
@@ -422,7 +439,7 @@ class RubricTests(TestCase):
         data = self.form(response)
         data["rubric_name"] = ["Cost review"]
         data["crit_id"][data["crit_id"].index("D")] = ""
-        for column, value in zip(("id", "label", "values", "prompt", "confirmable"), ("cost_reported", "Cost reported", "Yes, No", "Yes if the record reports a cost.", "yes")):
+        for column, value in zip(("id", "label", "values", "prompt", "confirmable", "type"), ("cost_reported", "Cost reported", "Yes, No", "Yes if the record reports a cost.", "yes", "")):
             data[f"field_{column}"].append(value)
         for column, value in zip(("index", "id", "name", "help", "max", "default"), ("9", "H", "Cost", "One point when a cost is reported.", "1", "0")):
             data[f"crit_{column}"].append(value)
@@ -431,6 +448,9 @@ class RubricTests(TestCase):
         response, rules, review = self.save(rubric, data)
         self.assertContains(response, "Saved.")
         self.assertContains(response, '<option value="cost_reported" selected>')
+        prompt_page = self.client.get(f"/rubrics/{rubric.pk}/prompt/")
+        self.assertContains(prompt_page, "- cost_reported: Yes if the record reports a cost.")
+        self.assertContains(prompt_page, "&quot;cost_reported&quot;: {")
         self.assertEqual(rubric.name, "Cost review")
         self.assertNotIn("D", rules["criteria"])
         self.assertEqual(
@@ -460,8 +480,13 @@ class RubricTests(TestCase):
 
     def test_the_list_shows_every_rubric_and_copies_one(self):
         rubric, _ = self.new()
+        rubric.rubric_yaml = rubric.rubric_yaml.replace("rubric_version: v0", "rubric_version: v1.9")
+        rubric.save()
         self.client.post(f"/rubrics/{rubric.pk}/copy/", follow=True)
+        copy = Rubric.objects.exclude(pk=rubric.pk).get()
+        self.assertEqual(copy.name, rubric.name)
+        self.assertEqual(yaml.safe_load(copy.rubric_yaml)["rubric_version"], "v1.10")
         page = self.client.get("/rubrics/")
-        self.assertContains(page, "Copy of New rubric")
-        self.assertEqual(Rubric.objects.count(), 2)
+        self.assertContains(page, "v1.9")
+        self.assertContains(page, "v1.10")
         self.assertContains(self.client.get("/"), 'href="/rubrics/"')

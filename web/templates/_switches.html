@@ -1,6 +1,5 @@
 <div>
-  <h3 class="font-semibold">Open questions</h3>
-  <div class="mt-2 grid gap-3 sm:grid-cols-2">
+  <div class="grid gap-3 sm:grid-cols-2">
     <label class="flex items-center gap-2"><input type="checkbox" name="promote_large" value="1"{% if switches.promote_large_studies_on_moderate %} checked{% endif %} class="checkbox"> Promote a large study on a moderate-certainty outcome to High</label>
     <label class="flex flex-col gap-1"><span>A large study has at least this many people</span><input type="number" name="large_study_n" value="{{ switches.large_study_n }}" min="0" required class="input"></label>
     <label class="flex flex-col gap-1"><span>A record outside the review's regions is capped at</span>

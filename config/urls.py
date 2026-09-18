@@ -16,6 +16,5 @@ urlpatterns = [
     path("rubrics/new/", views.rubric_new, name="rubric_new"),
     path("rubrics/<uuid:rubric_id>/", views.rubric_edit, name="rubric_edit"),
     path("rubrics/<uuid:rubric_id>/copy/", views.rubric_copy, name="rubric_copy"),
-    path("rubrics/<uuid:rubric_id>/rubric.yaml", views.rubric_file, {"name": "rubric"}, name="rubric_rubric"),
-    path("rubrics/<uuid:rubric_id>/review.yaml", views.rubric_file, {"name": "review"}, name="rubric_review"),
+    path("rubrics/<uuid:rubric_id>/prompt/", views.rubric_prompt, name="rubric_prompt"),
 ]
