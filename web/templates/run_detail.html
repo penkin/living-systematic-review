@@ -29,6 +29,11 @@
   </div>
   {% endfor %}
   <div class="stat min-w-40 flex-1 rounded-box bg-base-100 shadow-sm">
+    <div class="stat-title">Checked by a reviewer</div>
+    <div class="stat-value">{{ checked }}</div>
+    <div class="stat-desc">✓ agreed · ✎ changed</div>
+  </div>
+  <div class="stat min-w-40 flex-1 rounded-box bg-base-100 shadow-sm">
     <div class="stat-title">Set aside</div>
     <div class="stat-value">{{ separate|length }}</div>
     <div class="stat-desc">Not a signal decision</div>
@@ -56,7 +61,7 @@
             <a class="link-hover font-semibold" href="{% url 'record_detail' run_id row.record_id %}">{{ row.title }}</a>
             <div class="mt-1 text-sm text-base-content/60">
               {{ row.record_id }}{% if row.year %} · {{ row.year }}{% endif %}{% if row.country_names %} · {{ row.country_names|join:", " }}{% endif %}
-              {% if row.changed %} <span class="badge badge-info badge-xs">checked</span>{% endif %}
+              {% include "_marks.html" %}
             </div>
           </td>
           <td class="min-w-56">
@@ -84,7 +89,7 @@
         <tr id="{{ row.record_id }}">
           <td class="max-w-md">
             <a class="link-hover font-semibold" href="{% url 'record_detail' run_id row.record_id %}">{{ row.title }}</a>
-            <div class="mt-1 text-sm text-base-content/60">{{ row.record_id }}{% if row.year %} · {{ row.year }}{% endif %}{% if row.changed %} <span class="badge badge-info badge-xs">checked</span>{% endif %}</div>
+            <div class="mt-1 text-sm text-base-content/60">{{ row.record_id }}{% if row.year %} · {{ row.year }}{% endif %}{% include "_marks.html" %}</div>
           </td>
           <td>{{ row.lane_reason }}</td>
         </tr>

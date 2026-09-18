@@ -80,7 +80,8 @@ def _rows(run):
             row.update({t.field: t.value for t in record.tags.all()})
         else:
             row = dict(result.detail)
-        row["changed"] = any(t.status in ("confirmed", "overridden") for t in record.tags.all())
+        statuses = [t.status for t in record.tags.all()]
+        row["agreed"], row["changed"] = statuses.count("confirmed"), statuses.count("overridden")
         rows.append(row)
     return rows
 
@@ -137,6 +138,7 @@ def run_detail(request, run_id):
             "run": run,
             "total": len(rows),
             "tagged": sum(1 for r in rows if not r.get("pending")),
+            "checked": sum(1 for r in rows if r["agreed"] or r["changed"]),
             "signal": signal,
             "separate": [r for r in rows if r["lane"] == "separate"],
             "levels": [

@@ -1,0 +1,1 @@
+{% if row.agreed %} <span class="badge badge-success badge-xs" title="{{ row.agreed }} tag{{ row.agreed|pluralize }} agreed">✓ {{ row.agreed }}</span>{% endif %}{% if row.changed %} <span class="badge badge-info badge-xs" title="{{ row.changed }} tag{{ row.changed|pluralize }} changed">✎ {{ row.changed }}</span>{% endif %}
