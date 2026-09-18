@@ -12,5 +12,5 @@
       {% for key, effect in override_effects.items %}<option value="{{ key }}"{% if key == o.action %} selected{% endif %}>{{ effect|capfirst }}</option>{% endfor %}
     </select>
   </td>
-  <td><button type="button" class="btn btn-ghost btn-xs" onclick="this.closest('tr').remove()" aria-label="Remove override">Remove</button></td>
+  <td><button type="button" class="btn btn-soft btn-error btn-xs" onclick="this.closest('tr').remove()" aria-label="Remove override">Remove</button></td>
 </tr>
