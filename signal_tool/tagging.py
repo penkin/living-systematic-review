@@ -7,7 +7,7 @@ import yaml
 
 from signal_tool.geography import countries_in_text
 
-# SPEC.md section 5: record_type comes from keyword markers on record_type_raw,
+# docs/spec.md section 5: record_type comes from keyword markers on record_type_raw,
 # title and abstract, in that order of authority.
 SEARCH_FIELDS = ("record_type_raw", "title", "abstract")
 GEOGRAPHY_FIELDS = ("title", "abstract", "location")

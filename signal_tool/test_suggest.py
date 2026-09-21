@@ -10,11 +10,11 @@ from signal_tool.suggest import asked_fields, compile_prompt, parse_json, sugges
 ROOT = Path(__file__).resolve().parents[1]
 REVIEW = yaml.safe_load((ROOT / "review.yaml").read_text(encoding="utf-8"))
 RULES = yaml.safe_load((ROOT / "rubric.yaml").read_text(encoding="utf-8"))
-FIXTURES = Path(__file__).resolve().parent / "testdata" / "model"
+FIXTURES = ROOT / "testdata" / "model"
 
 
 def cards():
-    with (ROOT / "cards.csv").open(encoding="utf-8-sig", newline="") as handle:
+    with (ROOT / "testdata" / "cards.csv").open(encoding="utf-8-sig", newline="") as handle:
         return list(csv.DictReader(handle))
 
 RECORD = {"record_id": "SYN-999", "title": "Heat and sleep in Accra", "abstract": "A cohort of 40 adults in Accra."}

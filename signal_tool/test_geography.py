@@ -17,7 +17,7 @@ class CountryMatchTests(unittest.TestCase):
         self.assertEqual(countries_in_text("Indiana and Nigerians", REF), [])
 
     def test_the_iso_long_form_does_not_match_the_short_form(self):
-        # Expected: stage 2 supplies TZA. SPEC.md section 5 forbids fuzzy matching.
+        # Expected: stage 2 supplies TZA. docs/spec.md section 5 forbids fuzzy matching.
         self.assertEqual(countries_in_text("Dar es Salaam, Tanzania", REF), [])
 
 

@@ -1,9 +1,10 @@
-app = "signal-tool"
-primary_region = "jnb"
+# A template. Change app, primary_region and DJANGO_ALLOWED_HOSTS to your own values before you deploy. See docs/hosting.md.
+app = "update-signal"
+primary_region = "ams"
 
 [env]
   DJANGO_DEBUG = "0"
-  DJANGO_ALLOWED_HOSTS = "signal-tool.fly.dev"
+  DJANGO_ALLOWED_HOSTS = "update-signal.fly.dev"
   SIGNAL_DB = "/data/db.sqlite3"
 
 [mounts]
