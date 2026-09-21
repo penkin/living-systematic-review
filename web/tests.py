@@ -14,7 +14,7 @@ from signal_tool import pipeline
 from signal_tool.suggest import MODEL
 from signal_tool.test_suggest import FixtureClient
 from web.models import Record, Result, Rubric, Run, Tag
-from web.tasks import config, process_run
+from web.tasks import _store, config, process_run
 
 # SYN-901 has no fixture, so the fixture client raises and the record stays listed but unscored.
 GOOD = b'record_id,title,abstract\nSYN-901,Heat and preterm birth,We followed 2340 pregnancies.\n'
@@ -69,6 +69,32 @@ class UploadTests(WebTestCase):
         response = self.post(GOOD + GOOD.splitlines()[1] + b"\n")
         self.assertContains(response, "Repeated record_id: SYN-901", status_code=400)
         self.assertEqual(Run.objects.count(), 0)
+
+    def test_blank_or_slashed_record_id_is_rejected(self):
+        for body in (b"record_id,title,abstract\n,No id,Some text\n", b"record_id,title,abstract\nSYN/1,Slash in the id,Some text\n"):
+            response = self.post(body)
+            self.assertContains(response, "Every record_id must be filled in", status_code=400)
+        self.assertEqual(Run.objects.count(), 0)
+
+    def test_a_trailing_blank_row_is_dropped(self):
+        response = self.post(GOOD + b",,\n")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Record.objects.count(), 1)
+
+    def test_a_change_made_while_tagging_is_kept(self):
+        """The reviewer changes the type after stage 1 and before the model answers. The Result must follow the Tag."""
+
+        def change_type_then_store(record, *args):
+            Tag.objects.filter(record=record, field="record_type").update(value="retracted", status="overridden")
+            _store(record, *args)
+
+        with (settings.BASE_DIR / "testdata" / "cards.csv").open("rb") as handle:
+            body = handle.readline() + handle.readline()
+        with patch("web.tasks._store", side_effect=change_type_then_store):
+            response = self.post(body)
+        detail = Result.objects.get(record__record_id="SYN-001").detail
+        self.assertEqual((detail["record_type"], detail["lane"]), ("retracted", "separate"))
+        self.assertContains(response, "/record/SYN-001/")
 
     def test_no_api_key_is_rejected_before_a_run_exists(self):
         with patch("web.views.build_client", return_value=None):
@@ -311,6 +337,11 @@ class PasswordGateTests(TestCase):
     def test_no_password_means_no_gate(self):
         self.assertEqual(self.client.get("/").status_code, 200)
 
+    @override_settings(APP_PASSWORD="pässword")
+    def test_a_non_ascii_password_works(self):
+        self.assertEqual(self.client.get("/", HTTP_AUTHORIZATION=self.basic("pässword")).status_code, 200)
+        self.assertEqual(self.client.get("/", HTTP_AUTHORIZATION=self.basic("password")).status_code, 401)
+
 
 class RunListTests(WebTestCase):
     def rank(self):
@@ -443,6 +474,14 @@ class RubricTests(WebTestCase):
         # The file ends the question with a newline; the form box strips it.
         file_review["review_question"] = file_review["review_question"].strip()
         self.assertEqual(review, file_review)
+
+    def test_criterion_a_cannot_be_removed(self):
+        rubric, response = self.new()
+        data = self.form(response)
+        data["crit_id"][data["crit_id"].index("A")] = ""
+        response, rules, _ = self.save(rubric, data)
+        self.assertContains(response, "The rubric needs criterion A", status_code=400)
+        self.assertIn("A", rules["criteria"])
 
     def test_a_rubric_for_another_review(self):
         rubric, response = self.new()

@@ -26,7 +26,7 @@ needs a static route or a `collectstatic` step.
 | Variable | Set it to |
 |---|---|
 | `DJANGO_SECRET_KEY` | A long random string. Make one with the command below. |
-| `DJANGO_DEBUG` | `0`. |
+| `DJANGO_DEBUG` | `0`, or leave it unset. |
 | `DJANGO_ALLOWED_HOSTS` | The host name people type. Comma-separated if several. |
 | `SIGNAL_DB` | The SQLite path on the persistent disk, for example `/data/db.sqlite3`. |
 | `APP_PASSWORD` | The one shared password. Empty turns the gate off. |
