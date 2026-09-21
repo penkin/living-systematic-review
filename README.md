@@ -57,7 +57,7 @@ npm install && npm run css
 | `SIGNAL_DB` | `db.sqlite3` at the repo root | Where the SQLite file lives. |
 | `APP_PASSWORD` | empty, gate off | One shared password the browser asks for. |
 | `DJANGO_SECRET_KEY` | a development-only value | Set a long random value when hosted. |
-| `DJANGO_DEBUG` | `1` | Set `0` when hosted. |
+| `DJANGO_DEBUG` | `0` | Set `1` on your own machine to see the error pages. |
 | `DJANGO_ALLOWED_HOSTS` | localhost only | Comma-separated host names when hosted. |
 
 Put the variables in the git-ignored `.env` at the repo root. A variable already in the shell

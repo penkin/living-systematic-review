@@ -68,7 +68,8 @@ def _store(record, card, exc, future, review, rules, ref):
             for field, cell in entry["tags"].items()
             if field not in pipeline.STAGE_ONE
         )
-        save_result(record, entry, review, rules, ref)
+        # Read the tags back: a reviewer may have changed one while the model call was in flight.
+        save_result(record, entry_for(record), review, rules, ref)
 
 
 def entry_for(record):

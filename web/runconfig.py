@@ -316,8 +316,8 @@ def _criteria(post, base, known):
             rule["default"] = _whole(default, f"The default of criterion {id_}")
         rule.update({k: v for k, v in base.get(id_, {}).items() if k not in ("name", "help", "max") + SCORE_KEYS})
         criteria[id_] = rule
-    if not criteria:
-        raise ValueError("The rubric needs at least one criterion.")
+    if "A" not in criteria:
+        raise ValueError("The rubric needs criterion A. The High threshold and the caps read it.")
     return criteria
 
 

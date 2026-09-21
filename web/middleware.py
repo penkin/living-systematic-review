@@ -31,4 +31,5 @@ class PasswordGate:
             _, _, given = base64.b64decode(encoded, validate=True).decode().partition(":")
         except (ValueError, UnicodeDecodeError):
             return False
-        return hmac.compare_digest(given, settings.APP_PASSWORD)
+        # Bytes: the str form of compare_digest rejects non-ASCII characters.
+        return hmac.compare_digest(given.encode(), settings.APP_PASSWORD.encode())

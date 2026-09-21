@@ -11,7 +11,7 @@ if (BASE_DIR / ".env").is_file():
             os.environ.setdefault(name.strip(), value.strip().strip("'\""))
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-only-not-for-deployment")
-DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
+DEBUG = os.environ.get("DJANGO_DEBUG", "0") == "1"
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "[::1]", *filter(None, os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(","))]
 # Fly's proxy ends TLS and sets this header; without it every HTTPS form post fails the CSRF origin check.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -39,6 +39,7 @@ MIDDLEWARE = [
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
 TEMPLATES = [

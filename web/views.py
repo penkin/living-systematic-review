@@ -38,12 +38,15 @@ STATUS_WORDS = {"suggested": "Suggested", "rule": "Suggested", "confirmed": "Agr
 
 
 def _read_records(handle):
-    rows = list(csv.DictReader(handle))
+    rows = [r for r in csv.DictReader(handle) if any(isinstance(v, str) and v.strip() for v in r.values())]
     if not rows:
         raise ValueError("The file has a header but no records.")
     missing = [c for c in REQUIRED_COLUMNS if c not in rows[0]]
     if missing:
         raise ValueError(f"Missing required column(s): {', '.join(missing)}.")
+    # The record page URL carries the id, so it cannot be empty or hold a slash.
+    if any(not (r["record_id"] or "").strip() or "/" in r["record_id"] for r in rows):
+        raise ValueError("Every record_id must be filled in and must not contain a slash.")
     repeated = sorted(k for k, n in collections.Counter(r["record_id"] for r in rows).items() if n > 1)
     if repeated:
         raise ValueError(f"Repeated record_id: {', '.join(repeated)}.")
