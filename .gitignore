@@ -1,5 +1,6 @@
 .DS_Store
-docs/
+docs/*.pdf
+docs/*.docx
 .venv/
 .env
 db.sqlite3*

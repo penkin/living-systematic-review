@@ -5,7 +5,7 @@ from pathlib import Path
 from signal_tool.evaluate import agreement, equity, hand_levels, hand_tags, parse_handsort, regret, tag_agreement
 from signal_tool.test_scoring import REVIEW, RULES
 
-SHEET = (Path(__file__).parent / "testdata" / "handsheet.csv").read_text(encoding="utf-8-sig")
+SHEET = (Path(__file__).resolve().parents[1] / "testdata" / "handsheet.csv").read_text(encoding="utf-8-sig")
 
 
 def row(record_id, level, score, **extra):

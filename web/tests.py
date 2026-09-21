@@ -128,7 +128,7 @@ class RunTests(WebTestCase):
 
     def setUp(self):
         super().setUp()
-        with (settings.BASE_DIR / "cards.csv").open("rb") as handle:
+        with (settings.BASE_DIR / "testdata" / "cards.csv").open("rb") as handle:
             response = self.upload(handle)
         self.run_url = response["Location"]
         self.run_id = self.run_url.rstrip("/").rsplit("/", 1)[1]
@@ -260,7 +260,7 @@ class RunTests(WebTestCase):
         self.assertNotContains(response, "Question by question")
 
     def test_evaluate_page_reads_the_reviewers_sheet(self):
-        sheet = open(settings.BASE_DIR / "signal_tool" / "testdata" / "handsheet.csv", "rb").read()
+        sheet = open(settings.BASE_DIR / "testdata" / "handsheet.csv", "rb").read()
         response = self.client.post(f"{self.run_url}evaluate/", {"handsort": io.BytesIO(sheet)}, follow=True)
         self.assertContains(response, "Question by question")
         self.assertContains(response, "Not rural?")
@@ -314,7 +314,7 @@ class PasswordGateTests(TestCase):
 
 class RunListTests(WebTestCase):
     def rank(self):
-        with (settings.BASE_DIR / "cards.csv").open("rb") as handle:
+        with (settings.BASE_DIR / "testdata" / "cards.csv").open("rb") as handle:
             response = self.upload(handle)
         return Run.objects.get(pk=response["Location"].rstrip("/").rsplit("/", 1)[1])
 
@@ -474,7 +474,7 @@ class RubricTests(WebTestCase):
         )
         self.assertEqual(rules["criteria"]["A"]["parts"][0]["scores"], {"Yes": 1})
 
-        with (settings.BASE_DIR / "cards.csv").open("rb") as handle:
+        with (settings.BASE_DIR / "testdata" / "cards.csv").open("rb") as handle:
             response = self.client.post("/new/", {"cards": handle, "rubric": rubric.pk})
         run = Run.objects.get(rubric=rubric)
         self.assertEqual(yaml.safe_load(run.rubric_yaml), rules)

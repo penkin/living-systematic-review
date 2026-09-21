@@ -32,12 +32,12 @@ TAIL = (
 
 
 def confirmable(rules):
-    """The fields a human confirms or overrides on the record page. SPEC.md section 3."""
+    """The fields a human confirms or overrides on the record page. docs/spec.md section 3."""
     return [f["id"] for f in rules["fields"] if f.get("confirmable")]
 
 
 def columns(rules):
-    """signals.csv columns: SPEC.md section 5 order, then the blank reviewer columns, then the version fields."""
+    """signals.csv columns: docs/spec.md section 5 order, then the blank reviewer columns, then the version fields."""
     asked = [f["id"] for f in asked_fields(rules)]
     return (*INPUT, *STAGE_ONE, *asked, *SCORED, *rules["criteria"], *TAIL)
 

@@ -93,7 +93,7 @@ def score_record(tags, review, rules):
     g = next((c for c, rule in criteria.items() if rule.get("source_field") == "outcome_certainty"), None)
     scores = {c: score_from_tags(c, tags, rules) for c in criteria if c != g}
     values = {c: _value_text(criteria[c], tags, rules) for c in scores}
-    # SPEC.md section 4: an outcome the review does not cover, or one the table has
+    # docs/spec.md section 4: an outcome the review does not cover, or one the table has
     # decided not to pursue, earns nothing for landing where the review is uncertain.
     if g is None:
         pass

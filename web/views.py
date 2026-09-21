@@ -17,7 +17,7 @@ from web import runconfig
 from web.models import Record, Rubric, Run, Tag
 from web.tasks import config, entry_for, save_result, start_run
 
-# SPEC.md section 9: Covidence, Rayyan and EPPI-Reviewer exports all supply these
+# docs/spec.md section 9: Covidence, Rayyan and EPPI-Reviewer exports all supply these
 # three. Everything else in cards.csv is optional.
 REQUIRED_COLUMNS = ("record_id", "title", "abstract")
 
@@ -305,7 +305,7 @@ def run_detail(request, run_id):
         (r for r in rows if r["lane"] == "signal"),
         key=lambda r: (r.get("pending", False), order.get(r["signal_level"], len(order)), -(r["signal_score"] or 0), r["record_id"]),
     )
-    # SPEC.md section 3: the separate lane is not a signal decision. These records
+    # docs/spec.md section 3: the separate lane is not a signal decision. These records
     # stay visible and never get a score.
     uncertainty = next(
         (r for r in rules["criteria"].values() if r.get("source_field") == "outcome_certainty"),

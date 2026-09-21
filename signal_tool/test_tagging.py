@@ -18,7 +18,7 @@ def lane_of(**record):
 
 
 def tagged_cards():
-    with (ROOT / "cards.csv").open(encoding="utf-8-sig", newline="") as handle:
+    with (ROOT / "testdata" / "cards.csv").open(encoding="utf-8-sig", newline="") as handle:
         records = list(csv.DictReader(handle))
     return {r["record_id"]: r for r in tag(records, RULES, REVIEW, REF)}
 
